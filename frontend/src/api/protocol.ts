@@ -31,6 +31,15 @@ export interface StatusDTO {
   disclosure: string;
   /** off | loading | ready | error: ... */
   speech?: string;
+  /** Speech recognition: off | loading | ready | error: ... */
+  hearing?: string;
+}
+
+export interface ListeningDTO {
+  settings: { enabled: boolean; barge_in: boolean };
+  model: string;
+  language: string;
+  status: string;
 }
 
 export interface WordTimingDTO {
@@ -84,13 +93,21 @@ export type ServerEvent =
   | { type: "assistant_interrupted" }
   | AudioEvent
   | { type: "speech_end" }
+  | { type: "mic"; on: boolean }
+  | { type: "user_speaking"; speaking: boolean }
+  | { type: "transcribing" }
+  | { type: "transcript"; text: string }
+  | { type: "barge_in" }
   | { type: "error"; code: string; detail: string };
 
 export type ClientMessage =
   | { type: "user_message"; text: string }
   | { type: "interrupt" }
   | { type: "new_conversation" }
-  | { type: "open_conversation"; conversation_id: number };
+  | { type: "open_conversation"; conversation_id: number }
+  | { type: "mic_start" }
+  | { type: "mic_stop" }
+  | { type: "playback"; playing: boolean };
 
 export const MAX_INPUT_CHARS = 4000;
 
@@ -109,6 +126,11 @@ const SERVER_EVENT_TYPES = new Set([
   "assistant_interrupted",
   "audio",
   "speech_end",
+  "mic",
+  "user_speaking",
+  "transcribing",
+  "transcript",
+  "barge_in",
   "error",
 ]);
 
