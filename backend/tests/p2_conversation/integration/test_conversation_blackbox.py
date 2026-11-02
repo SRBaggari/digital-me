@@ -1,7 +1,8 @@
 """Against the real local model (skipped if Ollama is not running).
 
 Assertions are deliberately about observable behaviour that a small model reliably shows,
-so these tests are not flaky; persona quality is evaluated separately with scripts/eval_persona.py.
+so these tests are not flaky; persona quality is evaluated separately with
+backend/scripts/eval_persona.py.
 """
 
 import pytest
