@@ -34,7 +34,7 @@ describe("useDigitalMe wiring", () => {
   it("closes the socket on unmount", () => {
     const close = vi.fn();
     const { unmount } = renderHook(() =>
-      useDigitalMe(() => ({ connect: () => {}, send: () => true, close }), "ws://x"),
+      useDigitalMe(() => ({ connect: () => {}, send: () => true, sendBinary: () => true, close }), "ws://x"),
     );
     unmount();
     expect(close).toHaveBeenCalled();
