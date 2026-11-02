@@ -1,10 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from digital_me.config import Profile, Settings
+from digital_me.config import Profile, Settings, VoiceSettings
 from digital_me.conversation import ConversationStore
 from digital_me.db import Database
 from digital_me.server import AppContext, Session, create_app
+from digital_me.server.speech import Speech
+from digital_me.tts import VoicePreferences
 
 
 @pytest.fixture
@@ -53,17 +55,29 @@ def recorder():
 
 
 @pytest.fixture
+def make_speech(database, fake_tts_factory):
+    def make(tts=None, enabled=True, voice="v1") -> Speech:
+        return Speech(
+            tts or fake_tts_factory(), VoicePreferences(database, VoiceSettings(enabled=enabled, voice=voice))
+        )
+
+    return make
+
+
+@pytest.fixture
 def make_session(make_context, store, recorder):
-    def make(llm=None) -> Session:
-        return Session(make_context(llm).engine, store, recorder)
+    def make(llm=None, speech=None) -> Session:
+        return Session(make_context(llm).engine, store, recorder, speech)
 
     return make
 
 
 @pytest.fixture
 def make_client(make_context):
-    def make(llm=None) -> TestClient:
-        return TestClient(create_app(make_context(llm), frontend_dist=None), base_url="http://localhost")
+    def make(llm=None, speech=None) -> TestClient:
+        context = make_context(llm)
+        context.speech = speech
+        return TestClient(create_app(context, frontend_dist=None), base_url="http://localhost")
 
     return make
 
