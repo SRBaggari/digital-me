@@ -29,6 +29,48 @@ export interface StatusDTO {
   model: string;
   llm: { reachable: boolean; model_available: boolean; detail: string };
   disclosure: string;
+  /** off | loading | ready | error: ... */
+  speech?: string;
+}
+
+export interface WordTimingDTO {
+  text: string;
+  start: number;
+  end: number;
+  phonemes: string;
+}
+
+export interface AudioEvent {
+  type: "audio";
+  index: number;
+  text: string;
+  emotion: Emotion;
+  sample_rate: number;
+  duration: number;
+  format: "wav";
+  /** base64-encoded WAV */
+  data: string;
+  words: WordTimingDTO[];
+}
+
+export interface VoiceOption {
+  id: string;
+  name: string;
+  accent: string;
+  gender: string;
+}
+
+export interface VoiceSettingsDTO {
+  enabled: boolean;
+  voice: string;
+  speed: number;
+}
+
+export interface VoiceDTO {
+  settings: VoiceSettingsDTO;
+  voices: VoiceOption[];
+  engine: string;
+  status: string;
 }
 
 export type ServerEvent =
@@ -40,6 +82,8 @@ export type ServerEvent =
   | { type: "sentence"; index: number; text: string; emotion: Emotion }
   | { type: "assistant_done"; message: MessageDTO }
   | { type: "assistant_interrupted" }
+  | AudioEvent
+  | { type: "speech_end" }
   | { type: "error"; code: string; detail: string };
 
 export type ClientMessage =
@@ -63,6 +107,8 @@ const SERVER_EVENT_TYPES = new Set([
   "sentence",
   "assistant_done",
   "assistant_interrupted",
+  "audio",
+  "speech_end",
   "error",
 ]);
 
