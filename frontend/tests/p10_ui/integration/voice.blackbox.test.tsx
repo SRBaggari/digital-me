@@ -23,6 +23,7 @@ async function start(api = fakeApi()) {
     socket.emit({ type: "state", state: "idle" });
   });
   await screen.findByRole("button", { name: "Mute voice" });
+  await act(async () => {}); // let the voice setting reach the conversation state
   return { socket, api, audio };
 }
 

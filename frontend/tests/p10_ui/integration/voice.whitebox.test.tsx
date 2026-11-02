@@ -60,10 +60,13 @@ describe("voice wiring", () => {
     expect(audio.speaker.stop).toHaveBeenCalled();
   });
 
-  it("level() reads the speaker's loudness", () => {
+  it("level() follows Digital Me's voice while it plays, and is silent otherwise", () => {
     const audio = fakeSpeaker();
     const socket = controllableSocket(); // factories must be stable, as in the app
     const { result } = renderHook(() => useDigitalMe(socket.factory, "ws://x", audio.factory));
+    expect(result.current.level()).toBe(0);
+    act(() => result.current.setVoiceEnabled(true));
+    act(() => audio.start({ index: 0, text: "x", emotion: "neutral", words: [], data: "" }));
     expect(result.current.level()).toBe(0.5);
   });
 });
