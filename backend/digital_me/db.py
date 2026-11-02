@@ -27,6 +27,12 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX idx_messages_conversation ON messages(conversation_id, id);
     """,
+    """
+    CREATE TABLE preferences (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+    """,
 ]
 
 
