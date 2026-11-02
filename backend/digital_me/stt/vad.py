@@ -6,6 +6,7 @@ without audio. SileroVAD supplies those probabilities from the real model.
 
 from __future__ import annotations
 
+import warnings
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -120,7 +121,9 @@ class SileroVAD:
         from silero_vad import load_silero_vad  # model file ships inside the package
 
         self._torch = torch
-        self._model = load_silero_vad()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # torch.jit deprecation notice from the package
+            self._model = load_silero_vad()
 
     def __call__(self, frame: np.ndarray) -> float:
         with self._torch.no_grad():
