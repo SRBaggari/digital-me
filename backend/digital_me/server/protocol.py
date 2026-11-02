@@ -34,8 +34,26 @@ class OpenConversation(_ClientMessage):
     conversation_id: int
 
 
+class MicStart(_ClientMessage):
+    """The user switched the microphone on; raw 16 kHz PCM frames follow as binary messages."""
+
+    type: Literal["mic_start"]
+
+
+class MicStop(_ClientMessage):
+    type: Literal["mic_stop"]
+
+
+class Playback(_ClientMessage):
+    """Whether Digital Me's voice is audible right now (used to filter echo and for barge-in)."""
+
+    type: Literal["playback"]
+    playing: bool
+
+
 ClientMessage = Annotated[
-    UserMessage | Interrupt | NewConversation | OpenConversation, Field(discriminator="type")
+    UserMessage | Interrupt | NewConversation | OpenConversation | MicStart | MicStop | Playback,
+    Field(discriminator="type"),
 ]
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
