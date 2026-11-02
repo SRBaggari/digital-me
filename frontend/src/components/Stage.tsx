@@ -11,6 +11,8 @@ interface Props {
   emotion: Emotion;
   caption: string;
   pulse: number;
+  /** Loudness of the voice being played, 0..1. */
+  level?: () => number;
   /** After this long idle the expression relaxes back to neutral. */
   relaxAfterMs?: number;
 }
@@ -29,7 +31,7 @@ export function useRelaxedEmotion(state: AvatarState, emotion: Emotion, relaxAft
   return shown;
 }
 
-export function Stage({ name, state, emotion, caption, pulse, relaxAfterMs = 6000 }: Props) {
+export function Stage({ name, state, emotion, caption, pulse, level, relaxAfterMs = 6000 }: Props) {
   const shown = useRelaxedEmotion(state, emotion, relaxAfterMs);
   return (
     <section
@@ -43,7 +45,7 @@ export function Stage({ name, state, emotion, caption, pulse, relaxAfterMs = 600
         <StatusPill state={state} />
       </div>
       <div className="stage__avatar">
-        <Presence state={state} emotion={shown} pulse={pulse} name={name} />
+        <Presence state={state} emotion={shown} pulse={pulse} name={name} level={level} />
       </div>
       <Caption text={caption} state={state} />
     </section>
