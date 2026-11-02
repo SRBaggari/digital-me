@@ -28,13 +28,20 @@ export interface ChatState {
   caption: string;
   error: ChatError | null;
   localCounter: number;
+  /** Replies are spoken aloud. Subtitles and expressions then follow the audio, not the text. */
+  voiceEnabled: boolean;
+  /** Audio is currently playing. */
+  playing: boolean;
 }
 
 export type ChatAction =
   | { type: "server"; event: ServerEvent }
   | { type: "connection"; status: ConnectionStatus }
   | { type: "send"; text: string; now: string }
-  | { type: "dismiss_error" };
+  | { type: "dismiss_error" }
+  | { type: "voice_enabled"; enabled: boolean }
+  | { type: "clip_start"; text: string; emotion: Emotion }
+  | { type: "playback_idle" };
 
 export const initialChatState: ChatState = {
   connection: "connecting",
@@ -46,6 +53,8 @@ export const initialChatState: ChatState = {
   caption: "",
   error: null,
   localCounter: 0,
+  voiceEnabled: false,
+  playing: false,
 };
 
 export function fromDTO(message: MessageDTO): ChatMessage {
@@ -74,6 +83,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     case "dismiss_error":
       return { ...state, error: null };
+    case "voice_enabled":
+      return { ...state, voiceEnabled: action.enabled, ...(action.enabled ? {} : { playing: false }) };
+    case "clip_start":
+      return { ...state, playing: true, caption: action.text, emotion: toEmotion(action.emotion) };
+    case "playback_idle":
+      return { ...state, playing: false };
     case "send": {
       const counter = state.localCounter + 1;
       const optimistic: ChatMessage = {
@@ -95,6 +110,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages: [...messages, optimistic],
         draft: null,
         error: null,
+        playing: false, // sending a new message silences the current reply
       };
     }
     case "server":
@@ -124,6 +140,7 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
         draft: null,
         caption: "",
         emotion: "neutral",
+        playing: false,
       };
     case "state":
       return { ...state, avatarState: event.state };
@@ -138,7 +155,12 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
     }
     case "emotion": {
       const emotion = toEmotion(event.emotion);
-      return { ...state, emotion, draft: state.draft ? { ...state.draft, emotion } : state.draft };
+      return {
+        ...state,
+        // With voice on, the face changes when the sentence is heard (clip_start), not generated.
+        emotion: state.voiceEnabled ? state.emotion : emotion,
+        draft: state.draft ? { ...state.draft, emotion } : state.draft,
+      };
     }
     case "assistant_delta":
       return {
@@ -146,7 +168,10 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
         draft: { text: (state.draft?.text ?? "") + event.text, emotion: state.draft?.emotion ?? state.emotion },
       };
     case "sentence":
-      return { ...state, caption: event.text };
+      return state.voiceEnabled ? state : { ...state, caption: event.text };
+    case "audio":
+    case "speech_end":
+      return state; // audio is handled by the speech queue, which reports back via clip_start
     case "assistant_done":
       return { ...state, messages: [...state.messages, fromDTO(event.message)], draft: null };
     case "assistant_interrupted": {
@@ -168,6 +193,18 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
   }
 }
 
+/** What the avatar shows. With voice on, "speaking" means audio is actually playing. */
+export function displayState(state: ChatState): AvatarState {
+  if (state.playing) return "speaking";
+  if (state.voiceEnabled && state.avatarState === "speaking") return "thinking";
+  return state.avatarState;
+}
+
 export function isResponding(state: ChatState): boolean {
-  return state.avatarState === "thinking" || state.avatarState === "speaking" || state.draft !== null;
+  return (
+    state.avatarState === "thinking" ||
+    state.avatarState === "speaking" ||
+    state.draft !== null ||
+    state.playing
+  );
 }
