@@ -58,8 +58,10 @@ export class DigitalMeSocket {
 
   private open(): void {
     this.options.onStatus("connecting");
+    const previous = this.ws;
     const ws = new this.WS(this.options.url);
     this.ws = ws;
+    previous?.close(); // its onclose sees it was superseded and is ignored
     ws.onopen = () => {
       this.attempts = 0;
       this.options.onStatus("open");
