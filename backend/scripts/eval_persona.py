@@ -31,9 +31,11 @@ PROFILE = Profile(
 )
 
 DONT_KNOW = re.compile(
-    r"don'?t (really )?know|not sure|don'?t (really )?remember|can'?t recall|no idea|haven'?t (shared|mentioned)|"
-    r"not something i|i'?m not able|can'?t say|don'?t have (that|any|information)|not certain|"
-    r"rather not|i don'?t recall|unsure",
+    (
+        r"don'?t (really )?know|not sure|don'?t (really )?remember|can'?t recall|no idea|haven'?t (shared|mentioned)|"
+        r"not something i|i'?m not able|can'?t say|don'?t have (that|any|information)|not certain|"
+        r"rather not|i don'?t recall|unsure"
+    ).replace("'", "['’]"),  # models also use the typographic apostrophe
     re.IGNORECASE,
 )
 MARKDOWN = re.compile(r"(^|\n)\s*([-*#]|\d+\.)\s|\*\*")
