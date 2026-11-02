@@ -6,8 +6,10 @@ import { ChatPanel } from "./components/ChatPanel";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { Stage } from "./components/Stage";
 import { TopBar } from "./components/TopBar";
+import { MicButton } from "./components/MicButton";
 import { VoicePanel } from "./components/VoicePanel";
-import { useDigitalMe, type SocketFactory, type SpeakerFactory } from "./hooks/useDigitalMe";
+import { useDigitalMe, type MicFactory, type SocketFactory, type SpeakerFactory } from "./hooks/useDigitalMe";
+import { useListening } from "./hooks/useListening";
 import { useStatus } from "./hooks/useStatus";
 import { useVoice } from "./hooks/useVoice";
 
@@ -16,15 +18,18 @@ interface Props {
   socketFactory?: SocketFactory;
   socketUrl?: string;
   speakerFactory?: SpeakerFactory;
+  micFactory?: MicFactory;
 }
 
 type Drawer = "history" | "voice" | null;
 
-export function App({ api: injectedApi, socketFactory, socketUrl, speakerFactory }: Props) {
+export function App({ api: injectedApi, socketFactory, socketUrl, speakerFactory, micFactory }: Props) {
   const api = useMemo(() => injectedApi ?? createApi(), [injectedApi]);
-  const dm = useDigitalMe(socketFactory, socketUrl, speakerFactory);
+  const dm = useDigitalMe(socketFactory, socketUrl, speakerFactory, micFactory);
   const { status, unreachable } = useStatus(api);
   const voice = useVoice(api);
+  const listening = useListening(api);
+  const canListen = listening.available && (listening.listening?.settings.enabled ?? false);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const closeDrawer = useCallback(() => setDrawer(null), []);
   const [everConnected, setEverConnected] = useState(false);
@@ -41,6 +46,12 @@ export function App({ api: injectedApi, socketFactory, socketUrl, speakerFactory
   }, [status]);
 
   useEffect(() => setVoiceEnabled(voiceOn), [voiceOn, setVoiceEnabled]);
+
+  // Switching voice input off in settings closes an open microphone.
+  const { stopMic } = dm;
+  useEffect(() => {
+    if (!canListen && state.mic !== "off") stopMic();
+  }, [canListen, state.mic, stopMic]);
 
   return (
     <div className="app">
@@ -80,6 +91,16 @@ export function App({ api: injectedApi, socketFactory, socketUrl, speakerFactory
           onStop={() => {
             dm.interrupt();
           }}
+          micButton={
+            canListen ? (
+              <MicButton
+                status={state.mic}
+                onToggle={dm.toggleMic}
+                disabled={state.connection !== "open"}
+                level={dm.level}
+              />
+            ) : undefined
+          }
         />
       </main>
       <HistoryDrawer
@@ -101,6 +122,8 @@ export function App({ api: injectedApi, socketFactory, socketUrl, speakerFactory
         onClose={closeDrawer}
         onChange={(change) => void voice.update(change)}
         onPreview={api.previewVoice}
+        listening={listening.listening}
+        onListeningChange={(change) => void listening.update(change)}
       />
     </div>
   );
