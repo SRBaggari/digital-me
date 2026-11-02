@@ -16,6 +16,7 @@ import pytest
 
 from digital_me.config import instance as instance_module
 from digital_me.llm import LLMError, LLMHealth, OllamaClient
+from digital_me.stt import Transcript
 from digital_me.tts import Synthesis, TTSError, Voice, WordTiming
 
 
@@ -127,3 +128,59 @@ class FakeTTS:
 @pytest.fixture
 def fake_tts_factory():
     return FakeTTS
+
+
+class FakeTranscriber:
+    """Returns scripted texts in order (default: 'hello there')."""
+
+    name = "fake-stt"
+
+    def __init__(self, texts=None, *, error: Exception | None = None, delay: float = 0.0):
+        self.texts = list(texts) if texts is not None else []
+        self.error = error
+        self.delay = delay
+        self.received: list[np.ndarray] = []
+        self.warmed = False
+
+    @property
+    def ready(self) -> bool:
+        return self.warmed
+
+    def warm_up(self) -> None:
+        self.warmed = True
+
+    def transcribe(self, audio):
+        self.received.append(audio)
+        if self.delay:
+            time.sleep(self.delay)
+        if self.error:
+            raise self.error
+        text = self.texts.pop(0) if self.texts else "hello there"
+        return Transcript(text=text, duration=len(audio) / 16_000)
+
+
+def loudness_vad():
+    """VAD stand-in: a frame is speech when it is loud."""
+    return lambda frame: 1.0 if float(np.abs(frame).mean()) > 0.1 else 0.0
+
+
+def pcm(ms: int, amplitude: float = 0.0) -> bytes:
+    """16 kHz 16-bit PCM: amplitude 0 = silence, 0.5 = 'speech' for loudness_vad."""
+    return (np.full(16 * ms, amplitude, dtype=np.float32) * 32767).astype("<i2").tobytes()
+
+
+@pytest.fixture
+def fake_transcriber_factory():
+    return FakeTranscriber
+
+
+@pytest.fixture
+def speech_audio():
+    """Helpers to build microphone streams: speech_audio.voice(ms), speech_audio.silence(ms)."""
+
+    class Audio:
+        voice = staticmethod(lambda ms: pcm(ms, 0.5))
+        silence = staticmethod(lambda ms: pcm(ms, 0.0))
+        vad = staticmethod(loudness_vad)
+
+    return Audio
