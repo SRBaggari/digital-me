@@ -1,4 +1,4 @@
-import type { ConversationDTO, StatusDTO } from "./protocol";
+import type { ConversationDTO, StatusDTO, VoiceDTO, VoiceSettingsDTO } from "./protocol";
 
 export class ApiError extends Error {
   constructor(
@@ -31,6 +31,22 @@ export function createApi(fetchImpl: Fetch = (...args) => fetch(...args)) {
     conversations: () => request<ConversationDTO[]>(fetchImpl, "/api/conversations"),
     deleteConversation: (id: number) =>
       request<void>(fetchImpl, `/api/conversations/${id}`, { method: "DELETE" }),
+    voice: () => request<VoiceDTO>(fetchImpl, "/api/voice"),
+    updateVoice: (change: Partial<VoiceSettingsDTO>) =>
+      request<VoiceDTO>(fetchImpl, "/api/voice", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(change),
+      }),
+    previewVoice: async (voice: string, speed: number): Promise<Blob> => {
+      const response = await fetchImpl("/api/voice/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice, speed }),
+      });
+      if (!response.ok) throw new ApiError(response.status, "Could not preview the voice");
+      return response.blob();
+    },
   };
 }
 
