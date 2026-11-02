@@ -1,9 +1,19 @@
 import { vi } from "vitest";
 
-import type { ClientMessage, ConversationDTO, MessageDTO, ServerEvent, StatusDTO } from "../src/api/protocol";
+import type {
+  AudioEvent,
+  ClientMessage,
+  ConversationDTO,
+  MessageDTO,
+  ServerEvent,
+  StatusDTO,
+  VoiceDTO,
+  VoiceSettingsDTO,
+} from "../src/api/protocol";
 import type { Api } from "../src/api/rest";
 import type { SocketOptions } from "../src/api/socket";
-import type { SocketFactory } from "../src/hooks/useDigitalMe";
+import type { SpeechClip, SpeechQueueEvents } from "../src/audio/speechQueue";
+import type { SocketFactory, SpeakerFactory } from "../src/hooks/useDigitalMe";
 
 /** Minimal stand-in for the browser WebSocket, driven manually by tests. */
 export class FakeWebSocket {
@@ -116,11 +126,70 @@ export const STATUS_OK: StatusDTO = {
   disclosure: "AI-generated digital human. Not a real person communicating live.",
 };
 
+export const VOICE: VoiceDTO = {
+  settings: { enabled: true, voice: "af_heart", speed: 1 },
+  voices: [
+    { id: "af_heart", name: "Heart", accent: "American", gender: "female" },
+    { id: "am_michael", name: "Michael", accent: "American", gender: "male" },
+    { id: "bf_emma", name: "Emma", accent: "British", gender: "female" },
+  ],
+  engine: "kokoro",
+  status: "ready",
+};
+
 export function fakeApi(overrides: Partial<Api> = {}, conversations: ConversationDTO[] = []): Api {
+  let voice = structuredClone(VOICE);
   return {
     status: vi.fn(async () => STATUS_OK),
     conversations: vi.fn(async () => conversations),
     deleteConversation: vi.fn(async () => undefined),
+    voice: vi.fn(async () => voice),
+    updateVoice: vi.fn(async (change: Partial<VoiceSettingsDTO>) => {
+      voice = { ...voice, settings: { ...voice.settings, ...change } };
+      return voice;
+    }),
+    previewVoice: vi.fn(async () => new Blob(["RIFF"], { type: "audio/wav" })),
     ...overrides,
+  };
+}
+
+/** Speaker that records clips and lets tests drive playback start/end. */
+export function fakeSpeaker() {
+  const clips: SpeechClip[] = [];
+  let events: SpeechQueueEvents = {};
+  const speaker = {
+    enqueue: vi.fn((clip: SpeechClip) => clips.push(clip)),
+    stop: vi.fn(),
+    unlock: vi.fn(),
+    level: vi.fn(() => 0.5),
+  };
+  const factory: SpeakerFactory = (e) => {
+    events = e;
+    return speaker;
+  };
+  return {
+    factory,
+    speaker,
+    clips,
+    start(clip: SpeechClip) {
+      events.onClipStart?.(clip);
+    },
+    idle() {
+      events.onIdle?.();
+    },
+  };
+}
+
+export function audioEvent(index: number, text: string, emotion: AudioEvent["emotion"] = "neutral"): AudioEvent {
+  return {
+    type: "audio",
+    index,
+    text,
+    emotion,
+    sample_rate: 24000,
+    duration: 1,
+    format: "wav",
+    data: btoa("RIFF"),
+    words: [],
   };
 }
