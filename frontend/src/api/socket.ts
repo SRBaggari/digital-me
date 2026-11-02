@@ -43,6 +43,13 @@ export class DigitalMeSocket {
     return true;
   }
 
+  /** Raw microphone audio (16 kHz, 16-bit PCM). Dropped silently while disconnected. */
+  sendBinary(data: ArrayBuffer): boolean {
+    if (!this.ws || this.ws.readyState !== this.WS.OPEN) return false;
+    this.ws.send(data);
+    return true;
+  }
+
   close(): void {
     this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
