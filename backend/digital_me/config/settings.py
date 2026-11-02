@@ -72,12 +72,34 @@ class VoiceSettings(BaseModel):
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
 
 
+WHISPER_MODELS = ("tiny.en", "base.en", "small.en", "medium.en", "tiny", "base", "small", "medium", "large-v3")
+
+
+class ListeningSettings(BaseModel):
+    """Speech-to-text for talking to Digital Me through the microphone."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    model: str = "base.en"  # base.en ~1 s per sentence on CPU; small.en is more accurate but ~2.5 s
+    language: str = Field(default="en", min_length=2, max_length=8)
+    barge_in: bool = True  # start talking to interrupt Digital Me while it speaks
+
+    @field_validator("model")
+    @classmethod
+    def _known_model(cls, value: str) -> str:
+        if value not in WHISPER_MODELS:
+            raise ValueError(f"model must be one of {', '.join(WHISPER_MODELS)}")
+        return value
+
+
 class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     llm: LLMSettings = Field(default_factory=LLMSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
     voice: VoiceSettings = Field(default_factory=VoiceSettings)
+    listening: ListeningSettings = Field(default_factory=ListeningSettings)
 
 
 def load_settings(path: Path) -> Settings:

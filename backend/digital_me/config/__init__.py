@@ -3,6 +3,7 @@
 from .instance import Instance, InstanceError, create, list_instances, resolve, validate_name
 from .profile import Profile, ProfileError, load_profile
 from .settings import (
+    ListeningSettings,
     LLMSettings,
     ServerSettings,
     Settings,
@@ -15,6 +16,7 @@ __all__ = [
     "Instance",
     "InstanceError",
     "LLMSettings",
+    "ListeningSettings",
     "Profile",
     "ProfileError",
     "ServerSettings",

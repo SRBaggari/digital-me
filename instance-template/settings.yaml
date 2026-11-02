@@ -16,3 +16,9 @@ voice:                                   # defaults; can also be changed in the 
   engine: "kokoro"
   voice: "af_heart"                      # see the voice list in the app's settings
   speed: 1.0                             # 0.5 - 2.0
+
+listening:                               # talking to Digital Me through the microphone
+  enabled: true
+  model: "base.en"                       # base.en is fast; small.en understands accents better but is slower
+  language: "en"
+  barge_in: true                         # start talking to interrupt it while it speaks
