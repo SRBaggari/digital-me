@@ -18,7 +18,8 @@ communicating live.
 |---|---|---|
 | 1. Planning | Architecture, hardware review | ✅ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | 2. Text conversation | Persona, streaming replies, emotions, history, stop/interrupt, UI | ✅ |
-| 3. Voice | Speech-to-text, text-to-speech, barge-in | planned |
+| 3. Voice | **Spoken replies** (Kokoro, 12 voices, speed, preview, mute, stop) | ✅ |
+| 3b. Voice input & cloning | Microphone speech-to-text; your own cloned voice | waiting for your recordings |
 | 4. Avatar | 3D digital human, avatar upload, idle animation | planned |
 | 5. Lip sync & emotion | Mouth sync, facial expressions | planned |
 | 6. Memory | Approved long-term memory and its management UI | planned |
@@ -89,6 +90,24 @@ uv run digital-me list
 The server runs one instance at a time. Each database is stamped with its owner and refuses
 to open under any other instance.
 
+## Voice
+
+Replies are spoken aloud with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
+(Apache-2.0), running on the CPU so the GPU stays free for the language model. The model
+(about 330 MB) downloads once on first start and afterwards loads from the local cache with no
+network access.
+
+* **Speaker button** (top bar): mute or unmute.
+* **Sliders button**: choose a voice (American or British English), set the speed and play a
+  preview.
+* **Stop** (or <kbd>Esc</kbd>): silences the reply immediately.
+
+Long sentences are spoken in clause-sized pieces, so speech starts about 1.5 s after you send a
+message. Subtitles and the avatar's expression follow the sentence you are hearing.
+
+A cloned personal voice can be added later: the speech engine sits behind an interface
+(`backend/digital_me/tts/base.py`). Only recordings of someone who has consented may be used.
+
 ## Choosing a model
 
 ```powershell
@@ -136,7 +155,8 @@ backend/            Python 3.12 · FastAPI
     config/         P1  instances, profile, settings
     conversation/   P2  persona prompt, history, emotion tags, sentence streaming
     llm/            P2  Ollama client
-    server/         P8  session orchestrator, WebSocket API, security
+    tts/            P5  text-to-speech engines and voice preferences
+    server/         P8  session orchestrator, speech pipeline, WebSocket API, security
   tests/<part>/{unit,integration}/test_<feature>_{whitebox,blackbox}.py
 frontend/           React · TypeScript · Vite
   src/              P10 user interface
@@ -153,4 +173,6 @@ scripts/            commit privacy guard
 | "Ollama not running" | Start the Ollama app, or run `ollama serve` |
 | "Model not installed" | `ollama pull <model>` using the name in `settings.yaml` |
 | First reply is slow | The model loads into memory on first use; later replies are fast |
+| No sound | Check the speaker button isn't muted. Browsers only play audio after you interact with the page, so send a message by typing or clicking |
+| "The local model couldn't answer" once | Ollama's runner can crash when GPU memory is tight; Digital Me retries once automatically. Close GPU-heavy apps if it keeps happening |
 | Port in use | `.\start.ps1 -Instance alice -Port 8800` |
