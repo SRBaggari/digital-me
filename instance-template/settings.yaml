@@ -10,3 +10,9 @@ llm:
 server:
   host: "127.0.0.1"
   port: 8765
+
+voice:                                   # defaults; can also be changed in the app
+  enabled: true
+  engine: "kokoro"
+  voice: "af_heart"                      # see the voice list in the app's settings
+  speed: 1.0                             # 0.5 - 2.0

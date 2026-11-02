@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
 import yaml
@@ -60,11 +61,23 @@ class ServerSettings(BaseModel):
         return value
 
 
+class VoiceSettings(BaseModel):
+    """Default voice; the UI can override these per instance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    engine: Literal["kokoro"] = "kokoro"
+    voice: str = Field(default="af_heart", min_length=1, max_length=64)
+    speed: float = Field(default=1.0, ge=0.5, le=2.0)
+
+
 class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     llm: LLMSettings = Field(default_factory=LLMSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
+    voice: VoiceSettings = Field(default_factory=VoiceSettings)
 
 
 def load_settings(path: Path) -> Settings:
