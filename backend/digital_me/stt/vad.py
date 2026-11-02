@@ -114,16 +114,27 @@ class SpeechDetector:
 
 
 class SileroVAD:
-    """Silero VAD (MIT). One instance per audio stream: the model keeps internal state."""
+    """Silero VAD (MIT). One instance per audio stream: the model keeps internal state.
+
+    Runs the ONNX build, single-threaded inside onnxruntime, so it never competes with the
+    voice engine for PyTorch threads.
+    """
 
     def __init__(self) -> None:
         import torch
-        from silero_vad import load_silero_vad  # model file ships inside the package
 
         self._torch = torch
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # torch.jit deprecation notice from the package
-            self._model = load_silero_vad()
+        threads = torch.get_num_threads()
+        try:
+            # Importing silero_vad calls torch.set_num_threads(1) for the whole process, which
+            # made speech synthesis ~3x slower. Restore the previous setting afterwards.
+            from silero_vad import load_silero_vad  # model file ships inside the package
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self._model = load_silero_vad(onnx=True)
+        finally:
+            torch.set_num_threads(threads)
 
     def __call__(self, frame: np.ndarray) -> float:
         with self._torch.no_grad():
