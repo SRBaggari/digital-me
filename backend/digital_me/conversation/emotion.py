@@ -80,13 +80,13 @@ class EmotionTagParser:
                 self._buffer = self._buffer[start:]
             end = self._buffer.find("]")
             if end == -1:
-                if len(self._buffer) > _MAX_TAG_LENGTH or "\n" in self._buffer:
+                if _cannot_be_tag(self._buffer[1:]):
                     parts.append(TextPart("["))
                     self._buffer = self._buffer[1:]
                     continue
                 break  # possibly an incomplete tag: wait for more input
             inner = self._buffer[1:end]
-            if "[" in inner:
+            if "[" in inner or _cannot_be_tag(inner):
                 parts.append(TextPart("["))
                 self._buffer = self._buffer[1:]
                 continue
@@ -101,6 +101,11 @@ class EmotionTagParser:
     def flush(self) -> list[Part]:
         rest, self._buffer = self._buffer, ""
         return [TextPart(rest)] if rest else []
+
+
+def _cannot_be_tag(inner: str) -> bool:
+    # Same rule whether or not the closing ']' has arrived, so chunking never changes results.
+    return len(inner) > _MAX_TAG_LENGTH or "\n" in inner
 
 
 def _merge(parts: list[Part]) -> list[Part]:
