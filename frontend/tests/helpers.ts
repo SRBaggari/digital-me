@@ -4,6 +4,7 @@ import type {
   AudioEvent,
   ClientMessage,
   ConversationDTO,
+  ListeningDTO,
   MessageDTO,
   ServerEvent,
   StatusDTO,
@@ -12,8 +13,9 @@ import type {
 } from "../src/api/protocol";
 import type { Api } from "../src/api/rest";
 import type { SocketOptions } from "../src/api/socket";
+import type { MicrophoneHandlers } from "../src/audio/microphone";
 import type { SpeechClip, SpeechQueueEvents } from "../src/audio/speechQueue";
-import type { SocketFactory, SpeakerFactory } from "../src/hooks/useDigitalMe";
+import type { MicFactory, SocketFactory, SpeakerFactory } from "../src/hooks/useDigitalMe";
 
 /** Minimal stand-in for the browser WebSocket, driven manually by tests. */
 export class FakeWebSocket {
@@ -71,6 +73,7 @@ export const AsWebSocket = FakeWebSocket as unknown as typeof WebSocket;
 export function controllableSocket() {
   let options: SocketOptions | null = null;
   const sent: ClientMessage[] = [];
+  const binary: ArrayBuffer[] = [];
   let open = false;
   const factory: SocketFactory = (opts) => {
     options = opts;
@@ -81,6 +84,11 @@ export function controllableSocket() {
         sent.push(message);
         return true;
       },
+      sendBinary: (data) => {
+        if (!open) return false;
+        binary.push(data);
+        return true;
+      },
       close: () => {
         open = false;
       },
@@ -89,6 +97,7 @@ export function controllableSocket() {
   return {
     factory,
     sent,
+    binary,
     open() {
       open = true;
       options!.onStatus("open");
@@ -137,9 +146,22 @@ export const VOICE: VoiceDTO = {
   status: "ready",
 };
 
+export const LISTENING: ListeningDTO = {
+  settings: { enabled: true, barge_in: true },
+  model: "base.en",
+  language: "en",
+  status: "ready",
+};
+
 export function fakeApi(overrides: Partial<Api> = {}, conversations: ConversationDTO[] = []): Api {
   let voice = structuredClone(VOICE);
+  let listening = structuredClone(LISTENING);
   return {
+    listening: vi.fn(async () => listening),
+    updateListening: vi.fn(async (change: Partial<ListeningDTO["settings"]>) => {
+      listening = { ...listening, settings: { ...listening.settings, ...change } };
+      return listening;
+    }),
     status: vi.fn(async () => STATUS_OK),
     conversations: vi.fn(async () => conversations),
     deleteConversation: vi.fn(async () => undefined),
@@ -176,6 +198,31 @@ export function fakeSpeaker() {
     },
     idle() {
       events.onIdle?.();
+    },
+  };
+}
+
+/** Microphone whose start can succeed or fail, and whose frames the test pushes. */
+export function fakeMic(startError?: unknown) {
+  let handlers: MicrophoneHandlers | null = null;
+  const mic = {
+    start: vi.fn(async (h: MicrophoneHandlers) => {
+      if (startError) throw startError;
+      handlers = h;
+    }),
+    stop: vi.fn(() => {
+      handlers = null;
+    }),
+    level: vi.fn(() => 0.4),
+  };
+  return {
+    mic,
+    factory: (() => mic) as MicFactory,
+    frame(bytes = 1024) {
+      handlers?.onFrame(new ArrayBuffer(bytes));
+    },
+    get open() {
+      return handlers !== null;
     },
   };
 }
