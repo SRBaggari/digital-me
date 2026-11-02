@@ -59,8 +59,8 @@ kbd {
 
 .app {
   height: 100dvh;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(1200px 700px at 20% -10%, rgba(90, 110, 200, 0.12), transparent 60%),
     radial-gradient(900px 600px at 110% 110%, rgba(150, 90, 200, 0.08), transparent 60%),
@@ -69,6 +69,7 @@ kbd {
 }
 
 .layout {
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
   gap: 18px;
@@ -1020,6 +1021,20 @@ kbd {
 
   .health {
     display: none;
+  }
+
+  .presence {
+    --size: clamp(130px, 26vmin, 200px);
+  }
+
+  .caption {
+    bottom: 14px;
+    width: 92%;
+  }
+
+  .caption__text {
+    font-size: 0.95rem;
+    padding: 8px 14px;
   }
 }
 
