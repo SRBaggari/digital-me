@@ -24,6 +24,19 @@ async def test_streams_chunks_in_order():
     assert await drain(server(lambda r: httpx.Response(200, text=body))) == ["Hel", "lo", "!"]
 
 
+async def test_recovers_transparently_when_the_model_runner_crashes_once():
+    replies = iter(
+        [
+            httpx.Response(500, json={"error": "llama runner process has terminated"}),
+            httpx.Response(200, text=json.dumps({"message": {"content": "Hello!"}, "done": True})),
+        ]
+    )
+    client = OllamaClient(
+        "http://127.0.0.1:11434", "llama3.2:3b", transport=httpx.MockTransport(lambda r: next(replies)), retry_delay=0
+    )
+    assert await drain(client) == ["Hello!"]
+
+
 async def test_http_error_status():
     client = server(lambda r: httpx.Response(404, json={"error": "model 'x' not found"}))
     with pytest.raises(LLMError, match="404.*not found"):

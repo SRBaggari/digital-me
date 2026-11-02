@@ -72,6 +72,77 @@ async def test_other_transport_error_mapped():
         await drain(client_with(handler))
 
 
+def flaky(responses):
+    """Transport returning the given responses (or raising exceptions) in order."""
+    calls = []
+
+    def handler(request):
+        item = responses[len(calls)]
+        calls.append(request)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    return OllamaClient("http://127.0.0.1:11434", "m", transport=httpx.MockTransport(handler), retry_delay=0), calls
+
+
+OK_STREAM = ndjson({"message": {"content": "hi"}, "done": True})
+
+
+async def test_retries_once_after_server_error():
+    client, calls = flaky([httpx.Response(500, json={"error": "runner crashed"}), httpx.Response(200, text=OK_STREAM)])
+    assert await drain(client) == ["hi"]
+    assert len(calls) == 2
+
+
+async def test_retries_once_after_dropped_connection():
+    client, calls = flaky([httpx.RemoteProtocolError("dropped"), httpx.Response(200, text=OK_STREAM)])
+    assert await drain(client) == ["hi"]
+    assert len(calls) == 2
+
+
+async def test_gives_up_after_one_retry():
+    client, calls = flaky([httpx.Response(500, text="x"), httpx.Response(503, text="y")])
+    with pytest.raises(LLMError, match="503"):
+        await drain(client)
+    assert len(calls) == 2
+
+
+async def test_client_errors_are_not_retried():
+    client, calls = flaky([httpx.Response(404, json={"error": "no model"})])
+    with pytest.raises(LLMError, match="no model"):
+        await drain(client)
+    assert len(calls) == 1
+
+
+async def test_unreachable_server_is_not_retried():
+    client, calls = flaky([httpx.ConnectError("refused")])
+    with pytest.raises(LLMError, match="Is Ollama running"):
+        await drain(client)
+    assert len(calls) == 1
+
+
+async def test_no_retry_once_text_was_streamed():
+    class DropAfterFirstChunk(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield (json.dumps({"message": {"content": "par"}}) + "\n").encode()
+            raise httpx.ReadError("connection lost")
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, stream=DropAfterFirstChunk())
+
+    client = OllamaClient("http://127.0.0.1:11434", "m", transport=httpx.MockTransport(handler), retry_delay=0)
+    received = []
+    with pytest.raises(LLMError):
+        async for chunk in client.stream_chat([{"role": "user", "content": "hi"}]):
+            received.append(chunk)
+    assert received == ["par"]  # a retry would repeat text the user already saw
+    assert len(calls) == 1
+
+
 def test_error_text_variants():
     assert _error_text(b'{"error": "nope"}') == "nope"
     assert _error_text(b"plain") == "plain"
