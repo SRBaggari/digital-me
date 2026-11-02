@@ -1,0 +1,49 @@
+/* Design tokens. Dark by design: the digital human is lit like a subject on a stage. */
+
+@property --stage-hue {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #8ea2c8;
+}
+
+@property --presence-hue {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #8ea2c8;
+}
+
+:root {
+  color-scheme: dark;
+
+  --font-sans: "Inter Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --bg: #07080c;
+  --bg-raised: #0d0f15;
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-strong: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.085);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+
+  --text: #eceef4;
+  --text-muted: #a3a9b8;
+  --text-faint: #6c7284;
+
+  --accent: #8aa4ff;
+  --accent-strong: #a7b9ff;
+  --accent-ink: #0b1030;
+  --user-bubble: linear-gradient(135deg, #4a5fd6 0%, #6a55d8 100%);
+
+  --ok: #6fd3a0;
+  --warn: #f2c27b;
+  --danger: #ff8a8a;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-panel: 0 30px 80px -40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
