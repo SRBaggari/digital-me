@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------
+# PRIVATE DATA — never commit. This repository is public.
+# Each Digital Me instance (profile, memories, voice, avatar)
+# lives under instances/ on the local machine only.
+# ---------------------------------------------------------------
+instances/
+.env
+.env.*
+!.env.example
+
+# Avatar, voice and audio assets (uploaded locally through the UI)
+*.glb
+*.gltf
+*.vrm
+*.fbx
+*.blend
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+*.webm
+
+# Databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Model weights
+models/
+*.onnx
+*.pt
+*.pth
+*.safetensors
+*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.egg-info/
+.hypothesis/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
