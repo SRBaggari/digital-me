@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
@@ -18,7 +19,9 @@ from ..config.instance import REPO_ROOT
 from ..conversation import ConversationEngine, ConversationNotFoundError, ConversationStore
 from ..db import Database
 from ..llm import LLMClient, OllamaClient
+from ..stt import ListeningPreferences, ListeningUpdate, SileroVAD, WhisperTranscriber
 from ..tts import KokoroEngine, TTSEngine, TTSError, VoicePreferences, VoiceUpdate, to_wav_bytes
+from .listener import Hearing
 from .protocol import conversation_to_dict, message_to_dict
 from .security import LOCAL_HOSTNAMES, is_origin_allowed
 from .session import Session
@@ -47,19 +50,25 @@ class AppContext:
     llm: LLMClient
     database: Database | None = None
     speech: Speech | None = None
+    hearing: Hearing | None = None
     engine: ConversationEngine = field(init=False)
     speech_status: str = field(default="off", init=False)  # off | loading | ready | error: ...
+    hearing_status: str = field(default="off", init=False)
 
     def __post_init__(self) -> None:
         self.engine = ConversationEngine(self.profile, self.store, self.llm, self.settings.llm)
 
 
 def build_context(
-    instance: Instance, llm: LLMClient | None = None, tts: TTSEngine | None = None
+    instance: Instance,
+    llm: LLMClient | None = None,
+    tts: TTSEngine | None = None,
+    hearing: Hearing | None = None,
 ) -> AppContext:
     profile = load_profile(instance.profile_path)
     settings = load_settings(instance.settings_path)
     database = Database(instance.database_path, instance.name)
+    listening = settings.listening
     return AppContext(
         instance_name=instance.name,
         profile=profile,
@@ -68,7 +77,33 @@ def build_context(
         llm=llm or OllamaClient(settings.llm.base_url, settings.llm.model),
         database=database,
         speech=Speech(tts or KokoroEngine(), VoicePreferences(database, settings.voice)),
+        hearing=hearing
+        or Hearing(
+            WhisperTranscriber(listening.model, listening.language),
+            SileroVAD,
+            ListeningPreferences(database, listening),
+        ),
     )
+
+
+async def _warm_up_hearing(context: AppContext) -> None:
+    hearing = context.hearing
+    if hearing is None:
+        return
+    context.hearing_status = "loading"
+    try:
+        await asyncio.to_thread(hearing.transcriber.warm_up)
+        await asyncio.to_thread(hearing.vad_factory)  # loads the VAD model once
+        context.hearing_status = "ready"
+    except Exception as exc:
+        log.exception("Speech recognition failed to load")
+        context.hearing_status = f"error: {exc}"
+
+
+async def _warm_up(context: AppContext) -> None:
+    # One after the other: both are CPU-heavy, and the voice matters first.
+    await _warm_up_speech(context)
+    await _warm_up_hearing(context)
 
 
 async def _warm_up_speech(context: AppContext) -> None:
@@ -97,7 +132,7 @@ def _voice_payload(speech: Speech, status: str) -> dict:
 def create_app(context: AppContext, frontend_dist: Path | None = FRONTEND_DIST) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        warm_up = asyncio.create_task(_warm_up_speech(context))
+        warm_up = asyncio.create_task(_warm_up(context))
         yield
         warm_up.cancel()
 
@@ -110,6 +145,27 @@ def create_app(context: AppContext, frontend_dist: Path | None = FRONTEND_DIST) 
         if context.speech is None:
             raise HTTPException(status_code=404, detail="Voice is not available")
         return context.speech
+
+    def listening_payload() -> dict:
+        if context.hearing is None:
+            raise HTTPException(status_code=404, detail="Voice input is not available")
+        current = context.hearing.preferences.get()
+        return {
+            "settings": {"enabled": current.enabled, "barge_in": current.barge_in},
+            "model": current.model,
+            "language": current.language,
+            "status": context.hearing_status,
+        }
+
+    @app.get("/api/listening")
+    def get_listening() -> dict:
+        return listening_payload()
+
+    @app.put("/api/listening")
+    def update_listening(change: ListeningUpdate) -> dict:
+        listening_payload()  # 404 if unavailable
+        context.hearing.preferences.update(change)
+        return listening_payload()
 
     @app.get("/api/voice")
     def get_voice() -> dict:
@@ -152,6 +208,7 @@ def create_app(context: AppContext, frontend_dist: Path | None = FRONTEND_DIST) 
             },
             "disclosure": AI_DISCLOSURE,
             "speech": context.speech_status,
+            "hearing": context.hearing_status,
         }
 
     @app.get("/api/conversations")
@@ -179,14 +236,22 @@ def create_app(context: AppContext, frontend_dist: Path | None = FRONTEND_DIST) 
             await websocket.close(code=1008)
             return
         await websocket.accept()
-        session = Session(context.engine, context.store, websocket.send_json, context.speech)
+        session = Session(
+            context.engine, context.store, websocket.send_json, context.speech, context.hearing
+        )
         await session.start()
         try:
             while True:
-                await session.handle(await websocket.receive_json())
+                message = await websocket.receive()
+                if message["type"] == "websocket.disconnect":
+                    break
+                if message.get("bytes") is not None:  # microphone audio
+                    await session.handle_audio(message["bytes"])
+                else:
+                    await session.handle(json.loads(message.get("text") or ""))
         except WebSocketDisconnect:
             pass
-        except ValueError:  # non-JSON frame
+        except ValueError:  # non-JSON text frame
             await websocket.close(code=1003)
         finally:
             await session.close()
