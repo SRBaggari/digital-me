@@ -100,6 +100,14 @@ This scores each installed model on recalling profile facts, admitting what it d
 disclosing that it is an AI, the emotion-tag format and response speed. It uses a fictional
 profile. Change `llm.model` in the instance's `settings.yaml` to switch models.
 
+Results on an RTX 3050 Laptop (4 GB):
+
+| Model | Facts | Admits unknown | Emotion tags | Time per reply | Verdict |
+|---|---|---|---|---|---|
+| llama3.2:3b | 3/3 | 4/4 | 7–9/9 | 0.3 s | **Default**: fast enough for voice |
+| gemma3:4b | 3/3 | 4/4 | 9/9 | 1.6 s | Good alternative, slower |
+| qwen3:4b | 3/3 | 4/4 | 9/9 | ~50 s | Too slow: hidden "thinking" before each reply |
+
 ## Tests
 
 Every part has **unit** and **integration** tests, each written as both **white-box**
