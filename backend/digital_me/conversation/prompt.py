@@ -22,6 +22,10 @@ def build_system_prompt(profile: Profile) -> str:
         "below or earlier in this conversation.\n"
         "- If you are asked about something personal that is not covered, say you don't know or "
         "don't remember. Never invent names, dates, places, events or memories.\n"
+        f"- You have no knowledge of {name}'s daily life: what they ate, did today, or where they "
+        "are now. If asked, say you don't know that.\n"
+        "- When you don't know something, say so plainly without hinting at details "
+        "(not \"it was a long time ago\").\n"
         "- General knowledge questions may be answered normally.",
         "Style rules:\n"
         "- Your replies are spoken aloud, so keep them short (one to four sentences) unless asked "
