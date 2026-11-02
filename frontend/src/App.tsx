@@ -6,24 +6,31 @@ import { ChatPanel } from "./components/ChatPanel";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { Stage } from "./components/Stage";
 import { TopBar } from "./components/TopBar";
-import { useDigitalMe, type SocketFactory } from "./hooks/useDigitalMe";
+import { VoicePanel } from "./components/VoicePanel";
+import { useDigitalMe, type SocketFactory, type SpeakerFactory } from "./hooks/useDigitalMe";
 import { useStatus } from "./hooks/useStatus";
+import { useVoice } from "./hooks/useVoice";
 
 interface Props {
   api?: Api;
   socketFactory?: SocketFactory;
   socketUrl?: string;
+  speakerFactory?: SpeakerFactory;
 }
 
-export function App({ api: injectedApi, socketFactory, socketUrl }: Props) {
+type Drawer = "history" | "voice" | null;
+
+export function App({ api: injectedApi, socketFactory, socketUrl, speakerFactory }: Props) {
   const api = useMemo(() => injectedApi ?? createApi(), [injectedApi]);
-  const dm = useDigitalMe(socketFactory, socketUrl);
+  const dm = useDigitalMe(socketFactory, socketUrl, speakerFactory);
   const { status, unreachable } = useStatus(api);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const closeHistory = useCallback(() => setHistoryOpen(false), []);
+  const voice = useVoice(api);
+  const [drawer, setDrawer] = useState<Drawer>(null);
+  const closeDrawer = useCallback(() => setDrawer(null), []);
   const [everConnected, setEverConnected] = useState(false);
-  const { state } = dm;
+  const { state, setVoiceEnabled } = dm;
   const name = status?.persona_name ?? "Digital Me";
+  const voiceOn = voice.voice?.settings.enabled ?? false;
 
   useEffect(() => {
     if (state.connection === "open") setEverConnected(true);
@@ -33,6 +40,8 @@ export function App({ api: injectedApi, socketFactory, socketUrl }: Props) {
     document.title = status ? `${status.persona_name} · Digital Me` : "Digital Me";
   }, [status]);
 
+  useEffect(() => setVoiceEnabled(voiceOn), [voiceOn, setVoiceEnabled]);
+
   return (
     <div className="app">
       <TopBar
@@ -41,8 +50,11 @@ export function App({ api: injectedApi, socketFactory, socketUrl }: Props) {
         onNewConversation={() => {
           dm.newConversation();
         }}
-        onOpenHistory={() => setHistoryOpen(true)}
+        onOpenHistory={() => setDrawer("history")}
         disabled={state.connection !== "open"}
+        voiceEnabled={voice.available && voice.voice ? voiceOn : null}
+        onToggleVoice={() => void voice.update({ enabled: !voiceOn })}
+        onOpenVoice={() => setDrawer("voice")}
       />
       <Banner
         connection={state.connection}
@@ -53,15 +65,16 @@ export function App({ api: injectedApi, socketFactory, socketUrl }: Props) {
       <main className="layout">
         <Stage
           name={name}
-          state={state.avatarState}
+          state={dm.avatarState}
           emotion={state.emotion}
           caption={state.caption}
-          pulse={state.draft?.text.length ?? 0}
+          pulse={state.voiceEnabled ? 0 : (state.draft?.text.length ?? 0)}
+          level={dm.level}
         />
         <ChatPanel
           name={name}
           state={state}
-          avatarState={state.avatarState}
+          avatarState={dm.avatarState}
           responding={dm.responding}
           onSend={dm.sendText}
           onStop={() => {
@@ -70,16 +83,24 @@ export function App({ api: injectedApi, socketFactory, socketUrl }: Props) {
         />
       </main>
       <HistoryDrawer
-        open={historyOpen}
+        open={drawer === "history"}
         api={api}
         currentId={state.conversationId}
-        onClose={closeHistory}
+        onClose={closeDrawer}
         onOpenConversation={(id) => {
           dm.openConversation(id);
         }}
         onDeletedCurrent={() => {
           dm.newConversation();
         }}
+      />
+      <VoicePanel
+        open={drawer === "voice"}
+        voice={voice.voice}
+        error={voice.error}
+        onClose={closeDrawer}
+        onChange={(change) => void voice.update(change)}
+        onPreview={api.previewVoice}
       />
     </div>
   );
