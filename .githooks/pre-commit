@@ -1,0 +1,4 @@
+#!/bin/sh
+# Blocks personal data and secrets from being committed to this public repository.
+# Enable once per clone:  git config core.hooksPath .githooks
+exec python scripts/check_private.py
