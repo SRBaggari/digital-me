@@ -1,4 +1,4 @@
-import { History, SquarePen } from "lucide-react";
+import { History, SlidersHorizontal, SquarePen, Volume2, VolumeX } from "lucide-react";
 
 import type { StatusDTO } from "../api/protocol";
 import { initials } from "../lib/format";
@@ -9,6 +9,10 @@ interface Props {
   onNewConversation: () => void;
   onOpenHistory: () => void;
   disabled: boolean;
+  /** null when the server has no voice support */
+  voiceEnabled: boolean | null;
+  onToggleVoice: () => void;
+  onOpenVoice: () => void;
 }
 
 export function modelHealth(status: StatusDTO | null, serverUnreachable: boolean) {
@@ -19,7 +23,16 @@ export function modelHealth(status: StatusDTO | null, serverUnreachable: boolean
   return { level: "ok", text: `${status.model} · on this PC` } as const;
 }
 
-export function TopBar({ status, serverUnreachable, onNewConversation, onOpenHistory, disabled }: Props) {
+export function TopBar({
+  status,
+  serverUnreachable,
+  onNewConversation,
+  onOpenHistory,
+  disabled,
+  voiceEnabled,
+  onToggleVoice,
+  onOpenVoice,
+}: Props) {
   const name = status?.persona_name ?? "Digital Me";
   const health = modelHealth(status, serverUnreachable);
   return (
@@ -44,6 +57,22 @@ export function TopBar({ status, serverUnreachable, onNewConversation, onOpenHis
           <span className="health__dot" aria-hidden />
           {health.text}
         </span>
+        {voiceEnabled !== null && (
+          <>
+            <button
+              type="button"
+              className={`icon-button ${voiceEnabled ? "" : "icon-button--off"}`}
+              onClick={onToggleVoice}
+              aria-label={voiceEnabled ? "Mute voice" : "Unmute voice"}
+              aria-pressed={!voiceEnabled}
+            >
+              {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+            <button type="button" className="icon-button" onClick={onOpenVoice} aria-label="Voice settings">
+              <SlidersHorizontal size={18} />
+            </button>
+          </>
+        )}
         <button type="button" className="icon-button" onClick={onOpenHistory} aria-label="Conversation history">
           <History size={18} />
         </button>
