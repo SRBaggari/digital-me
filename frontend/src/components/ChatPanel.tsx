@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import type { AvatarState } from "../api/protocol";
 import type { ChatState } from "../state/chat";
@@ -13,26 +13,28 @@ export const SUGGESTIONS = [
 
 interface Props {
   name: string;
-  state: Pick<ChatState, "messages" | "draft" | "connection">;
+  state: Pick<ChatState, "messages" | "draft" | "connection"> &
+    Partial<Pick<ChatState, "mic" | "userSpeaking" | "transcribing">>;
   avatarState: AvatarState;
   responding: boolean;
   onSend: (text: string) => boolean;
   onStop: () => void;
+  micButton?: ReactNode;
 }
 
 const STICK_THRESHOLD_PX = 120;
 
-export function ChatPanel({ name, state, avatarState, responding, onSend, onStop }: Props) {
+export function ChatPanel({ name, state, avatarState, responding, onSend, onStop, micButton }: Props) {
   const list = useRef<HTMLDivElement>(null);
   const composer = useRef<ComposerHandle>(null);
   const stick = useRef(true);
-  const { messages, draft } = state;
+  const { messages, draft, userSpeaking = false, transcribing = false, mic = "off" } = state;
   const connected = state.connection === "open";
 
   useEffect(() => {
     const el = list.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [messages, draft?.text, avatarState]);
+  }, [messages, draft?.text, avatarState, userSpeaking, transcribing]);
 
   useEffect(() => composer.current?.focus(), []);
 
@@ -82,7 +84,18 @@ export function ChatPanel({ name, state, avatarState, responding, onSend, onStop
             }}
           />
         )}
-        {thinking && (
+        {(userSpeaking || transcribing) && (
+          <div className="hearing" role="status" aria-label={userSpeaking ? "Listening to you" : "Transcribing"}>
+            <span className="hearing__bars" aria-hidden>
+              <span />
+              <span />
+              <span />
+              <span />
+            </span>
+            {userSpeaking ? "Listening…" : "Transcribing…"}
+          </div>
+        )}
+        {thinking && !transcribing && (
           <div className="thinking" aria-label={`${name} is thinking`}>
             <span />
             <span />
@@ -97,10 +110,17 @@ export function ChatPanel({ name, state, avatarState, responding, onSend, onStop
           connected={connected}
           onSend={onSend}
           onStop={onStop}
-          placeholder={`Message ${name}…`}
+          placeholder={mic === "on" ? `Talk to ${name}, or type…` : `Message ${name}…`}
+          micButton={micButton}
         />
         <p className="chat__hint">
-          <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line · <kbd>Esc</kbd> stop
+          {mic === "on" ? (
+            <>Listening: just talk. Click the microphone to stop.</>
+          ) : (
+            <>
+              <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line · <kbd>Esc</kbd> stop
+            </>
+          )}
         </p>
       </div>
     </section>

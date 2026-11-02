@@ -1,5 +1,13 @@
 import { ArrowUp, Square } from "lucide-react";
-import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { MAX_INPUT_CHARS } from "../api/protocol";
 
@@ -9,6 +17,8 @@ interface Props {
   onSend: (text: string) => boolean;
   onStop: () => void;
   placeholder: string;
+  /** Shown next to the send button (the microphone toggle). */
+  micButton?: ReactNode;
 }
 
 export interface ComposerHandle {
@@ -20,7 +30,7 @@ const MAX_HEIGHT = 180;
 const COUNTER_FROM = MAX_INPUT_CHARS - 500;
 
 export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
-  { responding, connected, onSend, onStop, placeholder },
+  { responding, connected, onSend, onStop, placeholder, micButton },
   ref,
 ) {
   const [text, setText] = useState("");
@@ -82,6 +92,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             {text.length}/{MAX_INPUT_CHARS}
           </span>
         )}
+        {micButton}
         {responding && !text.trim() ? (
           <button type="button" className="send-button send-button--stop" onClick={onStop} aria-label="Stop reply">
             <Square size={14} fill="currentColor" />
