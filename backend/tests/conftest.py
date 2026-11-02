@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from digital_me.config import instance as instance_module
 from digital_me.llm import LLMError, LLMHealth, OllamaClient
+from digital_me.tts import Synthesis, TTSError, Voice, WordTiming
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -84,3 +87,43 @@ class FakeLLM:
 @pytest.fixture
 def fake_llm_factory():
     return FakeLLM
+
+
+class FakeTTS:
+    """Deterministic engine: 0.1 s of audio per word, one WordTiming per word."""
+
+    name = "fake"
+    sample_rate = 1000
+
+    def __init__(self, *, fail_on: str | None = None, delay: float = 0.0):
+        self.fail_on = fail_on
+        self.delay = delay
+        self.calls: list[tuple[str, str, float]] = []
+        self.warmed = False
+
+    @property
+    def ready(self) -> bool:
+        return self.warmed
+
+    def voices(self):
+        return [Voice("v1", "One", "American", "female"), Voice("v2", "Two", "British", "male")]
+
+    def warm_up(self, voice: str = "v1") -> None:
+        self.warmed = True
+
+    def synthesize(self, text: str, voice: str, speed: float) -> Synthesis:
+        self.calls.append((text, voice, speed))
+        if self.delay:
+            time.sleep(self.delay)
+        if self.fail_on and self.fail_on in text:
+            raise TTSError("synthesis broke")
+        words = text.split()
+        step = 0.1 / speed
+        timings = [WordTiming(w, round(i * step, 3), round((i + 1) * step, 3)) for i, w in enumerate(words)]
+        audio = np.full(int(len(words) * step * self.sample_rate), 0.25, dtype=np.float32)
+        return Synthesis(audio, self.sample_rate, timings)
+
+
+@pytest.fixture
+def fake_tts_factory():
+    return FakeTTS
