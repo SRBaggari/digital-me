@@ -19,7 +19,8 @@ communicating live.
 | 1. Planning | Architecture, hardware review | ✅ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | 2. Text conversation | Persona, streaming replies, emotions, history, stop/interrupt, UI | ✅ |
 | 3. Voice | **Spoken replies** (Kokoro, 12 voices, speed, preview, mute, stop) | ✅ |
-| 3b. Voice input & cloning | Microphone speech-to-text; your own cloned voice | waiting for your recordings |
+| 3b. Voice input | **Talk with your microphone**, hands-free, interrupt by talking | ✅ |
+| 3c. Voice cloning | Your own cloned voice | waiting for your recordings |
 | 4. Avatar | 3D digital human, avatar upload, idle animation | planned |
 | 5. Lip sync & emotion | Mouth sync, facial expressions | planned |
 | 6. Memory | Approved long-term memory and its management UI | planned |
@@ -108,6 +109,21 @@ message. Subtitles and the avatar's expression follow the sentence you are heari
 A cloned personal voice can be added later: the speech engine sits behind an interface
 (`backend/digital_me/tts/base.py`). Only recordings of someone who has consented may be used.
 
+### Talking with your voice
+
+Click the **microphone** next to the message box and just talk. Digital Me notices when you
+start and stop speaking (Silero VAD), turns what you said into text (Whisper `base.en`), and
+replies out loud. The microphone stays on for the next thing you say; click it again to stop.
+
+* **Interrupt by talking**: start speaking while it replies to cut it short. Headphones work
+  best; on speakers the browser's echo cancellation stops it hearing itself. It can be switched
+  off in the voice settings panel.
+* Your voice is processed in memory on this computer and is **never recorded or saved**.
+* About 3.3 s after you stop talking, you hear the reply: 0.7 s to be sure you've finished,
+  ~0.8 s to transcribe, ~0.6 s for the first sentence, ~1.2 s to voice it.
+* For stronger accents or noisy rooms set `listening.model: small.en` in `settings.yaml`
+  (more accurate, about 1.5 s slower).
+
 ## Choosing a model
 
 ```powershell
@@ -155,6 +171,7 @@ backend/            Python 3.12 · FastAPI
     config/         P1  instances, profile, settings
     conversation/   P2  persona prompt, history, emotion tags, sentence streaming
     llm/            P2  Ollama client
+    stt/            P4  speech detection and speech-to-text
     tts/            P5  text-to-speech engines and voice preferences
     server/         P8  session orchestrator, speech pipeline, WebSocket API, security
   tests/<part>/{unit,integration}/test_<feature>_{whitebox,blackbox}.py
@@ -173,6 +190,9 @@ scripts/            commit privacy guard
 | "Ollama not running" | Start the Ollama app, or run `ollama serve` |
 | "Model not installed" | `ollama pull <model>` using the name in `settings.yaml` |
 | First reply is slow | The model loads into memory on first use; later replies are fast |
+| Microphone blocked | Click the lock/mic icon in the browser's address bar and allow the microphone for 127.0.0.1 |
+| It interrupts itself | Use headphones, or switch off "Interrupt by talking" in voice settings |
+| Mishears you | Speak after the "Listening" indicator; try `listening.model: small.en` |
 | No sound | Check the speaker button isn't muted. Browsers only play audio after you interact with the page, so send a message by typing or clicking |
 | "The local model couldn't answer" once | Ollama's runner can crash when GPU memory is tight; Digital Me retries once automatically. Close GPU-heavy apps if it keeps happening |
 | Port in use | `.\start.ps1 -Instance alice -Port 8800` |
