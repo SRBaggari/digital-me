@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import warnings
 from collections.abc import Callable
-from contextlib import contextmanager
 from typing import Any
 
 import numpy as np
@@ -42,32 +40,46 @@ def lang_code(voice_id: str) -> str:
     return voice_id[0]
 
 
-@contextmanager
-def _hf_offline(enabled: bool):
-    """Prefer the local model cache so normal runs make no network requests."""
-    previous = os.environ.get("HF_HUB_OFFLINE")
-    if enabled:
-        os.environ["HF_HUB_OFFLINE"] = "1"
+def fetch(filename: str, download: Callable[..., str] | None = None) -> str:
+    """Local path of a model file: from the cache without any network request when present,
+    otherwise downloaded once from Hugging Face."""
+    if download is None:
+        from huggingface_hub import hf_hub_download as download
     try:
-        yield
-    finally:
-        if previous is None:
-            os.environ.pop("HF_HUB_OFFLINE", None)
-        else:
-            os.environ["HF_HUB_OFFLINE"] = previous
+        return download(repo_id=REPO_ID, filename=filename, local_files_only=True)
+    except Exception:  # not cached yet (LocalEntryNotFoundError)
+        log.info("Downloading %s from Hugging Face (first use only)", filename)
+        return download(repo_id=REPO_ID, filename=filename)
 
 
-def _default_pipeline_factory(code: str) -> Any:
-    from kokoro import KPipeline  # heavy import, deferred
+class _DefaultPipelines:
+    """Builds Kokoro pipelines that share a single loaded model."""
 
-    return KPipeline(lang_code=code, repo_id=REPO_ID)
+    def __init__(self) -> None:
+        self._model: Any = None
+
+    def __call__(self, code: str) -> Any:
+        from kokoro import KModel, KPipeline  # heavy imports, deferred
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # PyTorch deprecation notices from the library
+            if self._model is None:
+                self._model = KModel(
+                    repo_id=REPO_ID, config=fetch("config.json"), model=fetch("kokoro-v1_0.pth")
+                ).eval()
+            return KPipeline(lang_code=code, repo_id=REPO_ID, model=self._model)
 
 
 class KokoroEngine:
     name = "kokoro"
 
-    def __init__(self, pipeline_factory: Callable[[str], Any] = _default_pipeline_factory):
-        self._factory = pipeline_factory
+    def __init__(
+        self,
+        pipeline_factory: Callable[[str], Any] | None = None,
+        voice_path: Callable[[str], str] | None = None,
+    ):
+        self._factory = pipeline_factory or _DefaultPipelines()
+        self._voice_path = voice_path or (lambda voice: fetch(f"voices/{voice}.pt"))
         self._pipelines: dict[str, Any] = {}
         self._lock = threading.Lock()  # Kokoro pipelines are not thread-safe
 
@@ -98,12 +110,14 @@ class KokoroEngine:
 
     def _pipeline(self, code: str) -> Any:
         if code not in self._pipelines:
-            self._pipelines[code] = self._offline_first(lambda: self._factory(code))
+            self._pipelines[code] = self._factory(code)
         return self._pipelines[code]
 
     def _run(self, text: str, voice: str, speed: float) -> Synthesis:
         pipeline = self._pipeline(lang_code(voice))
-        results = self._offline_first(lambda: list(pipeline(text, voice=voice, speed=speed)))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # library deprecation chatter
+            results = list(pipeline(text, voice=self._voice_path(voice), speed=speed))
         chunks: list[np.ndarray] = []
         words: list[WordTiming] = []
         offset = 0.0
@@ -126,15 +140,3 @@ class KokoroEngine:
             offset += len(audio) / SAMPLE_RATE
         audio = np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
         return Synthesis(audio=audio, sample_rate=SAMPLE_RATE, words=words)
-
-    @staticmethod
-    def _offline_first(load: Callable[[], Any]) -> Any:
-        """Use the cache without network; download only if something is missing (first run)."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                with _hf_offline(True):
-                    return load()
-            except Exception as exc:  # not cached yet
-                log.info("Kokoro files not cached (%s); downloading once from Hugging Face", exc)
-                return load()
