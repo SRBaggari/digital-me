@@ -23,10 +23,15 @@ from ..conversation import (
     TurnStarted,
 )
 from ..llm import LLMError
+from ..stt import SpeechDetector
+from .listener import Hearing, Listener
 from .protocol import (
     Interrupt,
+    MicStart,
+    MicStop,
     NewConversation,
     OpenConversation,
+    Playback,
     UserMessage,
     client_message_adapter,
     error_event,
@@ -45,12 +50,17 @@ class Session:
         store: ConversationStore,
         send: Send,
         speech: Speech | None = None,
+        hearing: Hearing | None = None,
     ):
         self._engine = engine
         self._store = store
         self._send_raw = send
         self._speech = speech
+        self._hearing = hearing
         self._speaker: SentenceSpeaker | None = None
+        self._listener: Listener | None = None
+        self._client_playing = False  # Digital Me's voice is audible in the browser
+        self._ignore_utterance = False
         self._task: asyncio.Task[None] | None = None
         self._closed = False
         self.state = "idle"
@@ -86,6 +96,62 @@ class Session:
                 return
             self.conversation_id = message.conversation_id
             await self._send_conversation()
+        elif isinstance(message, MicStart):
+            await self._start_listening()
+        elif isinstance(message, MicStop):
+            await self._stop_listening()
+            await self._send({"type": "mic", "on": False})
+        elif isinstance(message, Playback):
+            self._client_playing = message.playing
+            if self._listener is not None:
+                self._listener.playback = message.playing
+
+    async def handle_audio(self, data: bytes) -> None:
+        """Raw 16 kHz 16-bit mono PCM from the microphone. Ignored while the mic is off."""
+        if self._listener is not None:
+            await self._listener.feed(data)
+
+    async def _start_listening(self) -> None:
+        if self._hearing is None:
+            await self._send(error_event("not_available", "Voice input is not available"))
+            return
+        if not self._hearing.preferences.get().enabled:
+            await self._send(error_event("not_available", "Voice input is switched off in settings"))
+            return
+        await self._stop_listening()
+        detector = SpeechDetector(self._hearing.vad_factory())
+        detector.playback = self._client_playing
+        self._listener = Listener(
+            detector,
+            self._hearing.transcriber,
+            on_speech_start=self._on_speech_start,
+            on_transcript=self._on_transcript,
+            send=self._send,
+        )
+        await self._send({"type": "mic", "on": True})
+
+    async def _stop_listening(self) -> None:
+        listener, self._listener = self._listener, None
+        if listener is not None:
+            await listener.close()
+
+    async def _on_speech_start(self) -> None:
+        responding = self.busy or self._client_playing
+        barge_in = self._hearing is not None and self._hearing.preferences.get().barge_in
+        # Without barge-in, anything said while Digital Me is talking is ignored (it is
+        # probably its own voice coming back through the speakers).
+        self._ignore_utterance = responding and not barge_in
+        if responding and barge_in:
+            await self.interrupt()
+            self._client_playing = False
+            await self._send({"type": "barge_in"})
+
+    async def _on_transcript(self, text: str) -> None:
+        if self._ignore_utterance:
+            self._ignore_utterance = False
+            return
+        await self.interrupt()
+        self._task = asyncio.create_task(self._run_turn(text))
 
     async def interrupt(self) -> None:
         task, self._task = self._task, None
@@ -107,6 +173,7 @@ class Session:
 
     async def close(self) -> None:
         self._closed = True
+        await self._stop_listening()
         await self.interrupt()
 
     async def _run_turn(self, text: str) -> None:
