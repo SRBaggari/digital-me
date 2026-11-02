@@ -32,7 +32,15 @@ export interface ChatState {
   voiceEnabled: boolean;
   /** Audio is currently playing. */
   playing: boolean;
+  /** Microphone (talk instead of typing). */
+  mic: MicStatus;
+  /** The user is speaking right now (detected by the server). */
+  userSpeaking: boolean;
+  /** What the user said is being turned into text. */
+  transcribing: boolean;
 }
+
+export type MicStatus = "off" | "starting" | "on";
 
 export type ChatAction =
   | { type: "server"; event: ServerEvent }
@@ -41,7 +49,9 @@ export type ChatAction =
   | { type: "dismiss_error" }
   | { type: "voice_enabled"; enabled: boolean }
   | { type: "clip_start"; text: string; emotion: Emotion }
-  | { type: "playback_idle" };
+  | { type: "playback_idle" }
+  | { type: "mic"; status: MicStatus }
+  | { type: "mic_error"; detail: string };
 
 export const initialChatState: ChatState = {
   connection: "connecting",
@@ -55,6 +65,9 @@ export const initialChatState: ChatState = {
   localCounter: 0,
   voiceEnabled: false,
   playing: false,
+  mic: "off",
+  userSpeaking: false,
+  transcribing: false,
 };
 
 export function fromDTO(message: MessageDTO): ChatMessage {
@@ -79,7 +92,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         connection: action.status,
         // A dropped connection ends the turn; the server stores what was said so far.
-        ...(action.status === "closed" ? { draft: null, avatarState: "idle" as const } : {}),
+        ...(action.status === "closed"
+          ? { draft: null, avatarState: "idle" as const, userSpeaking: false, transcribing: false }
+          : {}),
+      };
+    case "mic":
+      return {
+        ...state,
+        mic: action.status,
+        ...(action.status === "off" ? { userSpeaking: false, transcribing: false } : {}),
+      };
+    case "mic_error":
+      return {
+        ...state,
+        mic: "off",
+        userSpeaking: false,
+        transcribing: false,
+        error: { code: "mic_error", detail: action.detail },
       };
     case "dismiss_error":
       return { ...state, error: null };
@@ -141,6 +170,8 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
         caption: "",
         emotion: "neutral",
         playing: false,
+        userSpeaking: false,
+        transcribing: false,
       };
     case "state":
       return { ...state, avatarState: event.state };
@@ -171,7 +202,16 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
       return state.voiceEnabled ? state : { ...state, caption: event.text };
     case "audio":
     case "speech_end":
-      return state; // audio is handled by the speech queue, which reports back via clip_start
+    case "mic":
+      return state; // handled by the speech queue / microphone, which report back via actions
+    case "user_speaking":
+      return { ...state, userSpeaking: event.speaking };
+    case "transcribing":
+      return { ...state, transcribing: true };
+    case "transcript":
+      return { ...state, transcribing: false };
+    case "barge_in":
+      return { ...state, playing: false }; // the user started talking over the reply
     case "assistant_done":
       return { ...state, messages: [...state.messages, fromDTO(event.message)], draft: null };
     case "assistant_interrupted": {
@@ -195,8 +235,11 @@ function applyServerEvent(state: ChatState, event: ServerEvent): ChatState {
 
 /** What the avatar shows. With voice on, "speaking" means audio is actually playing. */
 export function displayState(state: ChatState): AvatarState {
+  if (state.userSpeaking) return "listening";
   if (state.playing) return "speaking";
   if (state.voiceEnabled && state.avatarState === "speaking") return "thinking";
+  if (state.transcribing) return "thinking";
+  if (state.avatarState === "idle" && state.mic === "on") return "listening";
   return state.avatarState;
 }
 
