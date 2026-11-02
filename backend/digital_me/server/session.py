@@ -32,16 +32,25 @@ from .protocol import (
     error_event,
     message_to_dict,
 )
+from .speech import SentenceSpeaker, Speech
 
 log = logging.getLogger(__name__)
 Send = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 class Session:
-    def __init__(self, engine: ConversationEngine, store: ConversationStore, send: Send):
+    def __init__(
+        self,
+        engine: ConversationEngine,
+        store: ConversationStore,
+        send: Send,
+        speech: Speech | None = None,
+    ):
         self._engine = engine
         self._store = store
         self._send_raw = send
+        self._speech = speech
+        self._speaker: SentenceSpeaker | None = None
         self._task: asyncio.Task[None] | None = None
         self._closed = False
         self.state = "idle"
@@ -102,12 +111,15 @@ class Session:
 
     async def _run_turn(self, text: str) -> None:
         await self._set_state("thinking")
+        self._speaker = self._start_speaker()
         try:
             # aclosing() makes sure the engine saves a partial reply even when cancellation
             # arrives while we are sending, not while the engine is awaiting the model.
             async with aclosing(self._engine.respond(self.conversation_id, text)) as events:
                 async for event in events:
                     await self._forward(event)
+            if self._speaker is not None:
+                await self._speaker.finish()
         except asyncio.CancelledError:
             await self._send({"type": "assistant_interrupted"})
             raise
@@ -119,7 +131,18 @@ class Session:
             log.exception("Unexpected error during turn")
             await self._send(error_event("internal_error", "Something went wrong. See the server log."))
         finally:
+            speaker, self._speaker = self._speaker, None
+            if speaker is not None:
+                await speaker.cancel()  # no-op if it already finished
             await self._set_state("idle")
+
+    def _start_speaker(self) -> SentenceSpeaker | None:
+        if self._speech is None:
+            return None
+        voice = self._speech.preferences.get()
+        if not voice.enabled:
+            return None
+        return SentenceSpeaker(self._speech.engine, voice, self._send)
 
     async def _forward(self, event: TurnEvent) -> None:
         if isinstance(event, TurnStarted):
@@ -134,6 +157,8 @@ class Session:
             await self._send(
                 {"type": "sentence", "index": event.index, "text": event.text, "emotion": event.emotion}
             )
+            if self._speaker is not None:
+                self._speaker.say(event.index, event.text, event.emotion)
         elif isinstance(event, TurnCompleted):
             await self._send({"type": "assistant_done", "message": message_to_dict(event.message)})
 
