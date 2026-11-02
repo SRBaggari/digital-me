@@ -10,6 +10,16 @@ from digital_me.stt import FRAME, SileroVAD, SpeechDetector, SpeechEnded, Speech
 pytestmark = pytest.mark.live
 
 
+def test_loading_vad_does_not_throttle_the_voice_engine():
+    """Regression: silero_vad's import set PyTorch to 1 thread process-wide (speech got 3x slower)."""
+    import torch
+
+    torch.set_num_threads(6)
+    SileroVAD()
+    SileroVAD()
+    assert torch.get_num_threads() == 6
+
+
 def test_vad_is_fast_enough_for_real_time(say):
     vad = SileroVAD()
     audio = say("Testing the speed of voice detection on this computer.")
