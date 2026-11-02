@@ -12,6 +12,8 @@ dependencies = [
     "kokoro>=0.9.4",
     "soundfile>=0.14.0",
     "en-core-web-sm",
+    "faster-whisper>=1.2.1",
+    "silero-vad>=6.2.3",
 ]
 
 [dependency-groups]
