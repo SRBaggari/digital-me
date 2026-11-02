@@ -17,8 +17,6 @@ from ..stt import SpeechDetector, SpeechEnded, SpeechStarted, STTError, Transcri
 log = logging.getLogger(__name__)
 Send = Callable[[dict[str, Any]], Awaitable[None]]
 
-MIN_UTTERANCE_S = 0.4  # shorter sounds (clicks, coughs) are not worth transcribing
-
 
 @dataclass
 class Hearing:
@@ -68,10 +66,11 @@ class Listener:
                 await self._send({"type": "user_speaking", "speaking": True})
                 await self._on_speech_start()
             elif isinstance(event, SpeechEnded):
+                # Even one-word answers ("yes") are transcribed; clicks never get this far
+                # (speech must last 250 ms to start) and Whisper drops noise it is unsure of.
                 await self._send({"type": "user_speaking", "speaking": False})
-                if event.duration >= MIN_UTTERANCE_S:
-                    await self._send({"type": "transcribing"})
-                    self._jobs.put_nowait(event.audio)
+                await self._send({"type": "transcribing"})
+                self._jobs.put_nowait(event.audio)
 
     async def close(self) -> None:
         self._worker.cancel()
