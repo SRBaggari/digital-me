@@ -1,4 +1,4 @@
-import type { ConversationDTO, StatusDTO, VoiceDTO, VoiceSettingsDTO } from "./protocol";
+import type { ConversationDTO, ListeningDTO, StatusDTO, VoiceDTO, VoiceSettingsDTO } from "./protocol";
 
 export class ApiError extends Error {
   constructor(
@@ -31,6 +31,13 @@ export function createApi(fetchImpl: Fetch = (...args) => fetch(...args)) {
     conversations: () => request<ConversationDTO[]>(fetchImpl, "/api/conversations"),
     deleteConversation: (id: number) =>
       request<void>(fetchImpl, `/api/conversations/${id}`, { method: "DELETE" }),
+    listening: () => request<ListeningDTO>(fetchImpl, "/api/listening"),
+    updateListening: (change: Partial<ListeningDTO["settings"]>) =>
+      request<ListeningDTO>(fetchImpl, "/api/listening", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(change),
+      }),
     voice: () => request<VoiceDTO>(fetchImpl, "/api/voice"),
     updateVoice: (change: Partial<VoiceSettingsDTO>) =>
       request<VoiceDTO>(fetchImpl, "/api/voice", {
