@@ -3,17 +3,20 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { App } from "../../../src/App";
-import { controllableSocket, dto, fakeApi } from "../../helpers";
+import { VOICE, controllableSocket, dto, fakeApi, fakeSpeaker } from "../../helpers";
 
-function start(api = fakeApi()) {
+const textOnlyApi = () => fakeApi({ voice: async () => ({ ...VOICE, settings: { ...VOICE.settings, enabled: false } }) });
+
+function start(api = textOnlyApi()) {
   const socket = controllableSocket();
-  render(<App api={api} socketFactory={socket.factory} socketUrl="ws://test/ws" />);
+  const audio = fakeSpeaker();
+  render(<App api={api} socketFactory={socket.factory} socketUrl="ws://test/ws" speakerFactory={audio.factory} />);
   act(() => {
     socket.open();
     socket.emit({ type: "conversation", conversation_id: 1, messages: [] });
     socket.emit({ type: "state", state: "idle" });
   });
-  return { socket, api };
+  return { socket, api, audio };
 }
 
 describe("Digital Me app (user's point of view)", () => {
