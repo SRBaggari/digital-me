@@ -1,11 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from digital_me.config import Profile, Settings, VoiceSettings
+from digital_me.config import ListeningSettings, Profile, Settings, VoiceSettings
 from digital_me.conversation import ConversationStore
 from digital_me.db import Database
 from digital_me.server import AppContext, Session, create_app
+from digital_me.server.listener import Hearing
 from digital_me.server.speech import Speech
+from digital_me.stt import ListeningPreferences
 from digital_me.tts import VoicePreferences
 
 
@@ -65,18 +67,31 @@ def make_speech(database, fake_tts_factory):
 
 
 @pytest.fixture
+def make_hearing(database, fake_transcriber_factory, speech_audio):
+    def make(transcriber=None, *, enabled=True, barge_in=True) -> Hearing:
+        return Hearing(
+            transcriber or fake_transcriber_factory(),
+            speech_audio.vad,
+            ListeningPreferences(database, ListeningSettings(enabled=enabled, barge_in=barge_in)),
+        )
+
+    return make
+
+
+@pytest.fixture
 def make_session(make_context, store, recorder):
-    def make(llm=None, speech=None) -> Session:
-        return Session(make_context(llm).engine, store, recorder, speech)
+    def make(llm=None, speech=None, hearing=None) -> Session:
+        return Session(make_context(llm).engine, store, recorder, speech, hearing)
 
     return make
 
 
 @pytest.fixture
 def make_client(make_context):
-    def make(llm=None, speech=None) -> TestClient:
+    def make(llm=None, speech=None, hearing=None) -> TestClient:
         context = make_context(llm)
         context.speech = speech
+        context.hearing = hearing
         return TestClient(create_app(context, frontend_dist=None), base_url="http://localhost")
 
     return make
