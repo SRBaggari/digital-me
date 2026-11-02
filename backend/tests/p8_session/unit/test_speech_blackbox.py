@@ -3,6 +3,39 @@ speech_end, before the session goes idle. With voice off, no audio is sent. Inte
 
 import asyncio
 
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
+from digital_me.server.speech import speakable_chunks
+
+@given(
+    st.lists(
+        st.tuples(st.text(alphabet="abcdefg", min_size=1, max_size=6), st.sampled_from(["", "", ",", ";", " —"])),
+        min_size=1,
+        max_size=40,
+    ),
+    st.booleans(),
+)
+def test_chunks_never_lose_or_reorder_words(pieces, first):
+    text = " ".join(word + punct for word, punct in pieces)
+    chunks = speakable_chunks(text, first)
+    assert " ".join(chunks).split() == text.split()
+    assert all(chunk.strip() for chunk in chunks)
+
+
+@pytest.mark.parametrize("first, limit", [(True, 8), (False, 16)])
+def test_short_sentences_are_spoken_whole(first, limit):
+    text = ", ".join(["word"] * limit)
+    assert speakable_chunks(text, first) == [text]
+
+
+def test_long_first_sentence_starts_with_a_short_clause():
+    text = "Miso is my cat, and she spends most of her days lounging in the sun by the window."
+    chunks = speakable_chunks(text, first=True)
+    assert chunks[0] == "Miso is my cat,"
+    assert len(chunks) == 2
+
 
 async def test_reply_is_spoken_sentence_by_sentence(make_session, make_speech, recorder, fake_llm_factory):
     session = make_session(fake_llm_factory(["[happy] Hello there! ", "How are you?"]), make_speech())

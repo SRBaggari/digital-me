@@ -2,7 +2,7 @@ import asyncio
 import base64
 
 from digital_me.config import VoiceSettings
-from digital_me.server.speech import SentenceSpeaker
+from digital_me.server.speech import SentenceSpeaker, speakable_chunks
 
 
 async def run_speaker(tts, sentences, recorder, voice=None):
@@ -49,6 +49,39 @@ async def test_failure_reported_once_and_rest_skipped(fake_tts_factory, recorder
 async def test_silent_result_sends_no_audio(fake_tts_factory, recorder):
     await run_speaker(fake_tts_factory(), [""], recorder)
     assert recorder.of("audio") == []
+
+
+def test_first_chunk_uses_tighter_limit():
+    text = "Well, to be honest, I think that rock climbing is the best thing in the world."
+    assert speakable_chunks(text, first=True) == [
+        "Well, to be honest,",  # "Well," alone is too short to stand as a clip
+        "I think that rock climbing is the best thing in the world.",
+    ]
+    assert speakable_chunks(text, first=False) == [text]  # 15 words: under the normal limit
+
+
+def test_no_tiny_trailing_fragment():
+    text = "I spent the whole afternoon climbing up at the crag, okay?"
+    assert speakable_chunks(text, first=True) == [text]
+
+
+def test_first_clause_too_short_is_extended_to_next_boundary():
+    text = "Yes, the cat, Miso, sleeps in the sun all day long and chases flies."
+    assert speakable_chunks(text, first=True)[0] == "Yes, the cat,"
+
+
+async def test_clips_numbered_across_split_sentences(fake_tts_factory, recorder):
+    speaker = SentenceSpeaker(fake_tts_factory(), VoiceSettings(voice="v1"), recorder)
+    speaker.say(0, "Honestly, my favourite thing, without a doubt, is reading in the park on a slow weekend.", "neutral")
+    speaker.say(1, "Short one.", "neutral")
+    await speaker.finish()
+    audio = recorder.of("audio")
+    assert [a["index"] for a in audio] == [0, 1, 2]
+    assert [a["text"] for a in audio] == [
+        "Honestly, my favourite thing,",
+        "without a doubt, is reading in the park on a slow weekend.",
+        "Short one.",
+    ]
 
 
 async def test_cancel_stops_without_speech_end(fake_tts_factory, recorder):
