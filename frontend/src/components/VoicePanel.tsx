@@ -1,7 +1,7 @@
 import { Loader2, Play, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type { VoiceDTO, VoiceSettingsDTO } from "../api/protocol";
+import type { ListeningDTO, VoiceDTO, VoiceSettingsDTO } from "../api/protocol";
 
 interface Props {
   open: boolean;
@@ -12,6 +12,9 @@ interface Props {
   onPreview: (voice: string, speed: number) => Promise<Blob>;
   /** Commit slider changes after the user pauses, so dragging does not spam the server. */
   debounceMs?: number;
+  /** Voice-input settings; omitted when the server cannot listen. */
+  listening?: ListeningDTO | null;
+  onListeningChange?: (change: Partial<ListeningDTO["settings"]>) => void;
 }
 
 export function speechStatusText(status: string | undefined): string {
@@ -21,7 +24,24 @@ export function speechStatusText(status: string | undefined): string {
   return `Voice engine problem: ${status.replace(/^error:\s*/, "")}`;
 }
 
-export function VoicePanel({ open, voice, error, onClose, onChange, onPreview, debounceMs = 300 }: Props) {
+export function hearingStatusText(status: string | undefined, model: string | undefined): string {
+  if (status === "loading") return "Loading speech recognition…";
+  if (status === "ready") return `Speech recognition ready (${model}) · runs on this PC`;
+  if (status?.startsWith("error")) return `Speech recognition problem: ${status.replace(/^error:\s*/, "")}`;
+  return "Speech recognition is off";
+}
+
+export function VoicePanel({
+  open,
+  voice,
+  error,
+  onClose,
+  onChange,
+  onPreview,
+  debounceMs = 300,
+  listening,
+  onListeningChange,
+}: Props) {
   const [speed, setSpeed] = useState(voice?.settings.speed ?? 1);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -150,6 +170,43 @@ export function VoicePanel({ open, voice, error, onClose, onChange, onPreview, d
               Built-in voices from Kokoro, generated on this computer. A personal cloned voice can be added later
               from recordings you provide.
             </p>
+
+            {listening && onListeningChange && (
+              <section className="voice-panel__section" aria-label="Talking with your voice">
+                <h3>Talking with your voice</h3>
+                <label className="switch-row">
+                  <span>
+                    <span className="switch-row__title">Voice input</span>
+                    <span className="switch-row__hint">{hearingStatusText(listening.status, listening.model)}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className="switch"
+                    checked={listening.settings.enabled}
+                    onChange={(event) => onListeningChange({ enabled: event.target.checked })}
+                  />
+                </label>
+                <label className="switch-row">
+                  <span>
+                    <span className="switch-row__title">Interrupt by talking</span>
+                    <span className="switch-row__hint">
+                      Start speaking to cut a reply short. Works best with headphones.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className="switch"
+                    checked={listening.settings.barge_in}
+                    onChange={(event) => onListeningChange({ barge_in: event.target.checked })}
+                  />
+                </label>
+                <p className="voice-panel__note">
+                  Your voice is turned into text on this computer and is never recorded or saved.
+                </p>
+              </section>
+            )}
           </div>
         )}
       </aside>
