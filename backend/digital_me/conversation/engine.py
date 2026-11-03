@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 
 from ..config import LLMSettings, Profile
+from ..language import DEFAULT_LANGUAGE, detect_language, reply_instruction
 from ..llm import LLMClient, LLMError
 from .emotion import DEFAULT_EMOTION, EmotionPart, EmotionTagParser, Part, TextPart
 from .history import ConversationNotFoundError, ConversationStore, Message
@@ -71,9 +72,14 @@ class ConversationEngine:
         self.settings = settings
         self.system_prompt = build_system_prompt(profile)
 
-    async def respond(self, conversation_id: int, user_text: str) -> AsyncIterator[TurnEvent]:
-        """Stream one reply. The user message is saved first; the reply is saved even if the
-        stream is cancelled or fails part-way (marked as interrupted)."""
+    async def respond(
+        self, conversation_id: int, user_text: str, language: str | None = None
+    ) -> AsyncIterator[TurnEvent]:
+        """Stream one reply in the user's language. The user message is saved first; the reply
+        is saved even if the stream is cancelled or fails part-way (marked as interrupted).
+
+        `language` comes from speech recognition; for typed text it is detected from the script.
+        """
         text = user_text.strip()
         if not text:
             raise ValueError("Message is empty")
@@ -86,7 +92,10 @@ class ConversationEngine:
         user_message = self.store.add_message(conversation_id, "user", text)
         yield TurnStarted(conversation_id, user_message)
 
-        messages = build_chat_messages(self.system_prompt, history, text)
+        reply_language = language or detect_language(text) or DEFAULT_LANGUAGE
+        messages = build_chat_messages(
+            self.system_prompt, history, text, instruction=reply_instruction(reply_language)
+        )
         parser = EmotionTagParser()
         state = _TurnState()
         completed = False

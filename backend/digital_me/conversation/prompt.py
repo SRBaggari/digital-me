@@ -30,7 +30,9 @@ def build_system_prompt(profile: Profile) -> str:
         "Style rules:\n"
         "- Your replies are spoken aloud, so keep them short (one to four sentences) unless asked "
         "for detail.\n"
-        "- Plain sentences only: no markdown, bullet points, headings or emojis.",
+        "- Plain sentences only: no markdown, bullet points, headings or emojis.\n"
+        "- Always answer in the language the user is using: English, or Telugu written in "
+        "Telugu script.",
         "Emotion rules:\n"
         f"- Start every reply with exactly one emotion tag from: {tags}\n"
         "- If your feeling clearly changes later in the reply, put a new tag right before that "
@@ -61,8 +63,14 @@ def build_system_prompt(profile: Profile) -> str:
 
 
 def build_chat_messages(
-    system_prompt: str, history: Sequence[Message], user_text: str
+    system_prompt: str,
+    history: Sequence[Message],
+    user_text: str,
+    *,
+    instruction: str | None = None,
 ) -> list[dict[str, str]]:
+    """`instruction` (e.g. which language to answer in) is placed right before the new message,
+    where small models pay most attention to it."""
     messages = [{"role": "system", "content": system_prompt}]
     for message in history:
         content = message.content
@@ -70,5 +78,7 @@ def build_chat_messages(
             # Showing earlier replies with their tags keeps small models using the format.
             content = f"[{message.emotion}] {content}"
         messages.append({"role": message.role, "content": content})
+    if instruction:
+        messages.append({"role": "system", "content": instruction})
     messages.append({"role": "user", "content": user_text})
     return messages
