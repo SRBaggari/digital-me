@@ -44,7 +44,7 @@ class SpeechDetector:
         playback_threshold: float = 0.85,
         min_speech_ms: int = 250,
         playback_min_speech_ms: int = 450,
-        min_silence_ms: int = 700,
+        min_silence_ms: int = 500,  # how long a pause means "finished"; every ms here is felt as lag
         pre_roll_ms: int = 300,
         max_utterance_s: float = 30.0,
     ):
