@@ -7,7 +7,7 @@ import re
 ABBREVIATIONS = frozenset(
     {"mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc", "e.g", "i.e", "approx", "fig"}
 )
-_TERMINATORS = ".!?…"
+_TERMINATORS = ".!?…।॥"  # including the danda used in Indian scripts
 _CLOSERS = "\"')]”’»"
 _WORD_BEFORE = re.compile(r"([A-Za-z.]+)$")
 
