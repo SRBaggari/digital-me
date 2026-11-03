@@ -104,6 +104,15 @@ describe("talking to Digital Me with your voice", () => {
     expect(screen.queryByRole("button", { name: /microphone/ })).not.toBeInTheDocument();
   });
 
+  it("the instant acknowledgement can be switched off", async () => {
+    const { api } = await start();
+    await userEvent.click(screen.getByRole("button", { name: "Voice settings" }));
+    const toggle = screen.getByRole("switch", { name: /Instant acknowledgement/ });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(api.updateVoice).toHaveBeenCalledWith({ acknowledge: false });
+  });
+
   it("voice-input options in the settings panel", async () => {
     const { api } = await start();
     await userEvent.click(screen.getByRole("button", { name: "Voice settings" }));

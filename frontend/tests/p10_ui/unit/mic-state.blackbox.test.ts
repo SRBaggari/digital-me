@@ -25,6 +25,14 @@ describe("avatar state while talking by voice", () => {
     expect(run(s, server({ type: "transcript", text: "hi" })).transcribing).toBe(false);
   });
 
+  it("an acknowledgement shows as speaking but keeps the subtitle and expression", () => {
+    const before = run(micOn, { type: "clip_start", text: "Earlier line.", emotion: "happy" }, { type: "playback_idle" });
+    const s = run(before, { type: "clip_start", text: "", emotion: "neutral" });
+    expect(displayState(s)).toBe("speaking");
+    expect(s.caption).toBe("Earlier line.");
+    expect(s.emotion).toBe("happy");
+  });
+
   it("barge-in stops playback", () => {
     const s = run(micOn, { type: "clip_start", text: "x", emotion: "neutral" }, server({ type: "barge_in" }));
     expect(s.playing).toBe(false);
