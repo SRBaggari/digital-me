@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from .romanised_telugu import WORDS
+from .romanised_telugu import NORMALISED_WORDS, WORDS, is_english_word, normalise
 
 LANGUAGES: dict[str, str] = {"en": "English", "te": "Telugu"}
 DEFAULT_LANGUAGE = "en"
@@ -21,13 +21,23 @@ _WORD = re.compile(r"[a-z]+")
 # also English ("a", "to", "e", "na", "mi", "ga", "lo", "ki") are excluded from recognition.
 _AMBIGUOUS = {"e", "na", "mi", "ga", "lo", "ki", "to", "tho", "em", "mari", "anna", "amma", "emi"}
 ROMANISED_TELUGU_WORDS = frozenset(set(WORDS) - _AMBIGUOUS)
+_AMBIGUOUS_NORMALISED = {normalise(word) for word in _AMBIGUOUS}
+
+
+def _is_telugu_word(word: str) -> bool:
+    if word in ROMANISED_TELUGU_WORDS:
+        return True
+    # A spelling variant ("chesthunaru") counts too, unless it is simply an English word
+    # ("to" normalises like "tho") or one of the short ambiguous words.
+    key = normalise(word)
+    return key in NORMALISED_WORDS and key not in _AMBIGUOUS_NORMALISED and not is_english_word(word)
 
 
 def is_romanised_telugu(text: str) -> bool:
     words = _WORD.findall(text.lower())
     if not words:
         return False
-    hits = sum(word in ROMANISED_TELUGU_WORDS for word in words)
+    hits = sum(_is_telugu_word(word) for word in words)
     # Two Telugu words, or one in a very short message ("bagunnava?"), and at least a quarter
     # of the words: avoids mistaking an English sentence with a name like "Ela" for Telugu.
     return (hits >= 2 or (hits == 1 and len(words) <= 2)) and hits / len(words) >= 0.25
@@ -68,4 +78,7 @@ def reply_instruction(language: str, romanised: bool = False) -> str:
             "sound, for example Miso -> మిసో, jazz -> జాజ్. Do not use English letters or any other "
             "script. Keep only the emotion tag in English, for example [happy]; never translate it."
         )
-    return "The user is speaking English. Reply in English."
+    return (
+        "The user is speaking English. Reply in English. (If the message is actually Telugu "
+        "written in English letters, understand it as Telugu and reply in Telugu script.)"
+    )

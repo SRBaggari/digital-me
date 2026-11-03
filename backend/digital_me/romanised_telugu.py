@@ -62,10 +62,37 @@ WORDS: dict[str, str] = {
     "abbayi": "అబ్బాయి", "ammayi": "అమ్మాయి", "amma": "అమ్మ", "nanna": "నాన్న", "anna": "అన్న",
     "akka": "అక్క", "tammudu": "తమ్ముడు", "chelli": "చెల్లి",
     "namaskaram": "నమస్కారం", "namaskaaram": "నమస్కారం", "dhanyavadalu": "ధన్యవాదాలు",
+    # time and place
+    "ippudu": "ఇప్పుడు", "ipudu": "ఇప్పుడు", "ikkada": "ఇక్కడ", "akkada": "అక్కడ", "repu": "రేపు",
+    "ninna": "నిన్న", "eroju": "ఈరోజు", "eeroju": "ఈరోజు", "ivala": "ఇవాళ", "ivvala": "ఇవాళ",
+    "roju": "రోజు", "ratri": "రాత్రి", "raatri": "రాత్రి", "podduna": "పొద్దున", "subharatri": "శుభరాత్రి",
+    "vunnaru": "ఉన్నారు", "vunnavu": "ఉన్నావు", "vundi": "ఉంది", "ayyindi": "అయ్యింది",
 }
 
 _CONSONANTS = "కఖగఘఙచఛజఝఞటఠడఢణతథదధపఫబభమయరలవశషసహళ"
 _TOKEN = re.compile(r"[A-Za-z]+|[^A-Za-z]+")
+_SPELLINGS = [("th", "t"), ("dh", "d"), ("sh", "s"), ("kh", "k"), ("bh", "b"), ("ph", "p"),
+              ("w", "v"), ("z", "j"), ("aa", "a"), ("ee", "i"), ("ii", "i"), ("oo", "u"), ("uu", "u")]
+
+
+def normalise(word: str) -> str:
+    """Fold chat spelling variants together: chesthunaru / chestunnaru / chesthunnaaru."""
+    word = word.lower()
+    for written, simple in _SPELLINGS:
+        word = word.replace(written, simple)
+    word = re.sub(r"(.)\1+", r"\1", word)  # doubled letters: unnaru -> unaru
+    return word.removesuffix("u") if word.endswith(("vu", "nu")) and len(word) > 4 else word
+
+
+# Several spellings of one word share a normalised form; the first listed spelling wins.
+NORMALISED_WORDS: dict[str, str] = {}
+for _spelling, _telugu in WORDS.items():
+    NORMALISED_WORDS.setdefault(normalise(_spelling), _telugu)
+
+
+def lookup(word: str) -> str | None:
+    """Telugu spelling of a romanised chat word, tolerant of spelling variants."""
+    return WORDS.get(word.lower()) or NORMALISED_WORDS.get(normalise(word))
 
 
 @lru_cache(maxsize=1)
@@ -98,12 +125,12 @@ def _transliterate_word(word: str) -> str:
 
 
 def _convert_word(word: str) -> str:
-    known = WORDS.get(word.lower())
-    if known:
-        return known
+    exact = WORDS.get(word.lower())
+    if exact:
+        return exact
     if is_english_word(word):
         return word
-    return _transliterate_word(word)
+    return lookup(word) or _transliterate_word(word)
 
 
 def to_telugu_script(text: str) -> str:
