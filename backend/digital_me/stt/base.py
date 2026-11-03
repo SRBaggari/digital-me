@@ -17,6 +17,9 @@ class Transcript:
     text: str
     duration: float  # seconds of audio
     language: str | None = None  # "en" / "te" when the transcriber knows it
+    # Whisper's mean log-probability per token: ~-0.1 for clear speech in the right language,
+    # below ~-0.6 when it is guessing (e.g. Telugu speech forced through the English model).
+    confidence: float | None = None
 
 
 class Transcriber(Protocol):

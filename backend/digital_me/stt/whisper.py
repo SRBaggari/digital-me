@@ -66,7 +66,7 @@ class WhisperTranscriber:
                     without_timestamps=True,
                 )
                 kept = [
-                    s.text.strip()
+                    s
                     for s in segments
                     if not (s.no_speech_prob > NO_SPEECH_LIMIT and s.avg_logprob < LOGPROB_LIMIT)
                 ]
@@ -74,5 +74,8 @@ class WhisperTranscriber:
                 log.exception("Transcription failed")
                 raise STTError(f"Could not transcribe speech: {exc}") from exc
         return Transcript(
-            text=" ".join(t for t in kept if t).strip(), duration=duration, language=self.language
+            text=" ".join(t for t in (s.text.strip() for s in kept) if t).strip(),
+            duration=duration,
+            language=self.language,
+            confidence=float(np.mean([s.avg_logprob for s in kept])) if kept else None,
         )
