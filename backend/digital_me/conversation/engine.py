@@ -7,8 +7,9 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 
 from ..config import LLMSettings, Profile
-from ..language import DEFAULT_LANGUAGE, detect_language, reply_instruction
+from ..language import DEFAULT_LANGUAGE, detect_language, is_romanised_telugu, reply_instruction
 from ..llm import LLMClient, LLMError
+from ..romanised_telugu import to_telugu_script
 from .emotion import DEFAULT_EMOTION, EmotionPart, EmotionTagParser, Part, TextPart
 from .history import ConversationNotFoundError, ConversationStore, Message
 from .prompt import build_chat_messages, build_system_prompt
@@ -97,8 +98,15 @@ class ConversationEngine:
         yield TurnStarted(conversation_id, user_message)
 
         reply_language = language or detect_language(text) or DEFAULT_LANGUAGE
+        romanised = reply_language == "te" and is_romanised_telugu(text)
+        # The model understands Telugu script but not romanised Telugu, so it gets a converted
+        # copy; the conversation keeps (and shows) what the user actually typed.
+        model_text = to_telugu_script(text) if romanised else text
         messages = build_chat_messages(
-            self.system_prompt, history, text, instruction=reply_instruction(reply_language)
+            self.system_prompt,
+            history,
+            model_text,
+            instruction=reply_instruction(reply_language, romanised=romanised),
         )
         parser = EmotionTagParser()
         state = _TurnState()
