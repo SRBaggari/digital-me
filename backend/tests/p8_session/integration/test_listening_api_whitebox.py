@@ -56,6 +56,43 @@ async def test_hearing_warm_up_failure_reported(make_context, make_hearing, fake
     assert context.hearing_status == "error: no whisper"
 
 
+async def test_switching_to_the_accurate_telugu_model_swaps_it_in_the_background(make_context, database, fake_transcriber_factory, monkeypatch):
+    import asyncio
+
+    from digital_me.config import ListeningSettings
+    from digital_me.server import app as app_module
+    from digital_me.server.listener import Hearing
+    from digital_me.stt import BilingualTranscriber, ListeningPreferences
+
+    old_te, new_te = fake_transcriber_factory(["old"]), fake_transcriber_factory(["new"])
+    bilingual = BilingualTranscriber({"en": fake_transcriber_factory(), "te": old_te}, detector_factory=lambda: None)
+    monkeypatch.setattr(app_module, "telugu_transcriber", lambda size: new_te)
+    context = make_context()
+    context.hearing = Hearing(bilingual, lambda: (lambda f: 0.0), ListeningPreferences(database, ListeningSettings()))
+    await app_module._swap_telugu_model(context, "small")
+    assert context.hearing_status == "loading"
+    await asyncio.gather(*context.background_tasks)
+    assert bilingual.transcriber_for("te") is new_te and new_te.warmed
+    assert context.hearing_status == "ready"
+
+
+def test_accurate_telugu_choice_is_remembered_across_restarts(instances_home, fake_llm_factory, fake_tts_factory, monkeypatch):
+    from digital_me.server import app as app_module
+
+    async def no_swap(context, size):  # loading the real model is not what this test is about
+        pass
+
+    monkeypatch.setattr(app_module, "_swap_telugu_model", no_swap)
+    instance = create("alice")
+    context = build_context(instance, llm=fake_llm_factory(), tts=fake_tts_factory())
+    TestClient(create_app(context, frontend_dist=None), base_url="http://localhost").put(
+        "/api/listening", json={"telugu_model": "small"}
+    )
+    context.database.close()
+    restarted = build_context(instance, llm=fake_llm_factory(), tts=fake_tts_factory())
+    assert restarted.hearing.transcriber.transcriber_for("te").model_name == "telugu-small"
+
+
 def test_status_reports_hearing(make_client, make_hearing):
     with make_client(hearing=make_hearing()) as client:
         assert client.get("/api/status").json()["hearing"] == "ready"

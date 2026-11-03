@@ -35,7 +35,7 @@ def test_talking_over_the_websocket(make_client, make_hearing, fake_transcriber_
 def test_get_and_change_listening_settings(make_client, make_hearing):
     client = make_client(hearing=make_hearing())
     body = client.get("/api/listening").json()
-    assert body["settings"] == {"enabled": True, "barge_in": True}
+    assert body["settings"] == {"enabled": True, "barge_in": True, "telugu_model": "base"}
     assert body["model"] == "base.en"
     changed = client.put("/api/listening", json={"barge_in": False}).json()
     assert changed["settings"]["barge_in"] is False

@@ -12,7 +12,7 @@ def test_only_ui_fields_stored():
     db = Database(":memory:", "t")
     ListeningPreferences(db, ListeningSettings(model="small.en")).update(ListeningUpdate(barge_in=False))
     stored = json.loads(db.query("SELECT value FROM preferences WHERE key='listening'")[0]["value"])
-    assert stored == {"enabled": True, "barge_in": False}
+    assert stored == {"enabled": True, "barge_in": False, "telugu_model": "base"}
 
 
 def test_model_comes_from_settings_not_ui():
