@@ -26,7 +26,8 @@ _AMBIGUOUS_NORMALISED = {normalise(word) for word in _AMBIGUOUS}
 
 def _is_telugu_word(word: str) -> bool:
     if word in ROMANISED_TELUGU_WORDS:
-        return True
+        # a dictionary word that is also English ("cinema", "pata") is no evidence of Telugu
+        return not is_english_word(word)
     # A spelling variant ("chesthunaru") counts too, unless it is simply an English word
     # ("to" normalises like "tho") or one of the short ambiguous words.
     key = normalise(word)

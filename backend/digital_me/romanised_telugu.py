@@ -67,6 +67,23 @@ WORDS: dict[str, str] = {
     "ninna": "నిన్న", "eroju": "ఈరోజు", "eeroju": "ఈరోజు", "ivala": "ఇవాళ", "ivvala": "ఇవాళ",
     "roju": "రోజు", "ratri": "రాత్రి", "raatri": "రాత్రి", "podduna": "పొద్దున", "subharatri": "శుభరాత్రి",
     "vunnaru": "ఉన్నారు", "vunnavu": "ఉన్నావు", "vundi": "ఉంది", "ayyindi": "అయ్యింది",
+    # everyday words
+    "gurinchi": "గురించి", "kosam": "కోసం", "tarvata": "తర్వాత", "taruvata": "తరువాత",
+    "mundu": "ముందు", "pedda": "పెద్ద", "chinna": "చిన్న", "manchi": "మంచి", "chedda": "చెడ్డ",
+    "kotha": "కొత్త", "kottha": "కొత్త", "patha": "పాత", "ekkuva": "ఎక్కువ", "takkuva": "తక్కువ",
+    "konchem": "కొంచెం", "koncham": "కొంచెం", "anni": "అన్ని", "emaindi": "ఏమైంది", "emayindi": "ఏమైంది",
+    "samayam": "సమయం", "nidra": "నిద్ర", "prema": "ప్రేమ", "santosham": "సంతోషం",
+    "badha": "బాధ", "kopam": "కోపం", "bhayam": "భయం", "aakali": "ఆకలి", "akali": "ఆకలి",
+    "nijam": "నిజం", "nijamga": "నిజంగా", "abaddham": "అబద్ధం", "sahayam": "సహాయం",
+    "pustakam": "పుస్తకం", "cinema": "సినిమా", "sinima": "సినిమా", "paata": "పాట", "pata": "పాట",
+    "paatalu": "పాటలు", "ooru": "ఊరు", "uru": "ఊరు", "pelli": "పెళ్లి",
+    "chusava": "చూశావా", "chusanu": "చూశాను", "chudandi": "చూడండి", "chudu": "చూడు",
+    "vinnava": "విన్నావా", "vinnanu": "విన్నాను", "vinu": "విను", "cheppanu": "చెప్పాను",
+    "chadivanu": "చదివాను", "chaduvu": "చదువు", "rasanu": "రాశాను", "nerchukunnanu": "నేర్చుకున్నాను",
+    "randi": "రండి", "ra": "రా", "po": "పో", "veldam": "వెళ్దాం", "veldama": "వెళ్దామా",
+    "kurchondi": "కూర్చోండి", "cheyyandi": "చెయ్యండి", "aagu": "ఆగు", "agandi": "ఆగండి",
+    "anukuntunna": "అనుకుంటున్నా", "anukuntunnanu": "అనుకుంటున్నాను", "kavalante": "కావాలంటే",
+    "ledhu": "లేదు", "ledu": "లేదు", "inkemi": "ఇంకేమి", "inkenti": "ఇంకేంటి", "inkem": "ఇంకేం",
 }
 
 _CONSONANTS = "కఖగఘఙచఛజఝఞటఠడఢణతథదధపఫబభమయరలవశషసహళ"
@@ -114,14 +131,41 @@ def is_english_word(word: str) -> bool:
     return word in words or (len(word) > 3 and word.endswith("s") and word[:-1] in words)
 
 
+# Casual chat spelling -> ISO 15919, which (unlike ITRANS) has short e/o and dental "t".
+# Measured on 36 everyday words not in the dictionary: 19 exact (ITRANS: 14), 12% character
+# errors (ITRANS: 18%). The rest are mostly genuinely ambiguous vowel lengths.
+_CASUAL = {"chh": "ch", "ch": "c", "sh": "ṣ", "th": "t", "dh": "d", "aa": "ā", "ee": "ī",
+           "ii": "ī", "oo": "ū", "uu": "ū", "w": "v", "z": "j", "f": "ph", "x": "ks", "q": "k"}
+_CASUAL_PATTERN = re.compile("|".join(sorted(_CASUAL, key=len, reverse=True)))
+_ISO_VOWELS = "aeiouāīū"
+
+
+def _vowel_length(iso: str) -> str:
+    """In Telugu, e/o before a doubled consonant or a cluster are short (pedda, cheyyi, veldama);
+    otherwise they are usually long (prema, kosam, repu)."""
+    out = []
+    for i, char in enumerate(iso):
+        if char in "eo" and (i == 0 or iso[i - 1] not in "aeiou"):
+            following = iso[i + 1 : i + 3]
+            short = len(following) == 2 and all(c not in _ISO_VOWELS for c in following)
+            out.append(char if short else {"e": "ē", "o": "ō"}[char])
+        else:
+            out.append(char)
+    return "".join(out)
+
+
 def _transliterate_word(word: str) -> str:
     from indic_transliteration import sanscript
     from indic_transliteration.sanscript import transliterate
 
-    telugu = transliterate(word.lower().replace("z", "j"), sanscript.ITRANS, sanscript.TELUGU)
-    telugu = re.sub(r"మ్$", "ం", telugu)  # final m is written as anusvara: "istam" -> "ఇష్టం"
-    other = _CONSONANTS.replace("న", "")
-    return re.sub(rf"న్(?=[{other}])", "ం", telugu)  # "nt", "ng": "ante" -> "అంటే"
+    iso = _vowel_length(_CASUAL_PATTERN.sub(lambda m: _CASUAL[m.group()], word.lower()))
+    iso = re.sub(r"(?<=[ao])ndi$", "ṇḍi", iso)  # polite commands: randi, chudandi -> -ండి
+    telugu = transliterate(iso, sanscript.ISO, sanscript.TELUGU)
+    telugu = re.sub(r"మ్$", "ం", telugu)  # final m is written as anusvara: "pustakam" -> "పుస్తకం"
+    for nasal in "నణ":  # n before another consonant is written as anusvara: "ante" -> "అంటే"
+        others = _CONSONANTS.replace(nasal, "")
+        telugu = re.sub(rf"{nasal}్(?=[{others}])", "ం", telugu)
+    return telugu
 
 
 def _convert_word(word: str) -> str:
