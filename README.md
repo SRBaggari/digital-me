@@ -166,6 +166,10 @@ English and in Telugu; `male` does the same for male voices.
   script so it can be spoken. English words inside ("nenu chala happy ga unnanu") stay English.
   Common chat words are spelled correctly, including spelling variants ("em chesthunaru",
   "ela unnav"); rarer ones are converted approximately.
+* **More accurate Telugu recognition** (voice settings) switches to the larger Telugu model while
+  running. On generated test speech it was only slightly more accurate (10–19% vs 12–19% word
+  errors) but 3.5× slower (~2.5 s vs ~0.7 s per sentence), so it's off by default; try it with your
+  own voice.
 * Speech is treated as English only when Whisper is clearly hearing English; otherwise it goes to
   the Telugu model. (Whisper often mistakes Telugu for Hindi, Tamil and others, which used to send
   Telugu speech to the English model and produce nonsense.)
