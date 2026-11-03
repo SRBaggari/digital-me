@@ -42,6 +42,19 @@ def test_nested_bracket_keeps_inner_tag():
     assert parser.feed("[[happy] ok") == [TextPart("["), EmotionPart("happy"), TextPart(" ok")]
 
 
+def test_telugu_alias_becomes_emotion():
+    assert EmotionTagParser().feed("[విచారంగా] సరే") == [EmotionPart("sad"), TextPart(" సరే")]
+
+
+def test_unknown_telugu_tag_is_dropped():
+    assert EmotionTagParser().feed("[గట్టిగా అరుస్తూ] హలో") == [TextPart(" హలో")]
+
+
+def test_long_telugu_bracket_is_content():
+    long_text = "[" + "అ" * 30 + "]"
+    assert EmotionTagParser().feed(long_text) == [TextPart(long_text)]
+
+
 def test_unknown_tag_passes_through():
     parser = EmotionTagParser()
     assert parser.feed("see [1] here") == [TextPart("see [1] here")]

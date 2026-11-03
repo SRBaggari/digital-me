@@ -45,6 +45,20 @@ async def test_real_model_answers_telugu_in_telugu(live_llm, profile, store, col
     assert detect_language(english[-1].message.content) == "en", english[-1].message.content
 
 
+async def test_real_model_answers_romanised_telugu_in_telugu_script(live_llm, profile, store, collect):
+    from digital_me.language import detect_language
+
+    engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.2))
+    events = await collect(engine.respond(store.create_conversation(), "mee kukka peru enti?"))
+    reply = events[-1].message.content
+    assert detect_language(reply) == "te" and not is_romanised(reply), reply
+    assert "[" not in reply, reply  # emotion tags, even Telugu ones, never reach the text
+
+
+def is_romanised(text):
+    return not any(0x0C00 <= ord(c) <= 0x0C7F for c in text)
+
+
 async def test_real_model_knows_profile_fact(live_llm, profile, store, collect):
     engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.0))
     conv = store.create_conversation()

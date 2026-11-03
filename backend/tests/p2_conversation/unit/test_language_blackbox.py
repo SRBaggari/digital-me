@@ -47,10 +47,43 @@ async def test_english_message_gets_english_instruction(make_engine, store, fake
 
 
 async def test_spoken_language_overrides_script(make_engine, store, fake_llm_factory, collect):
-    # e.g. Telugu speech that recognition returned in Latin letters
     llm = fake_llm_factory()
-    await collect(make_engine(llm).respond(store.create_conversation(), "ela unnavu", language="te"))
+    await collect(make_engine(llm).respond(store.create_conversation(), "Miso", language="te"))
     assert llm.calls[0]["messages"][-2]["content"] == reply_instruction("te")
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["ela unnavu?", "Hi, ela unnavu?", "mee pilli peru enti?", "bagunnava", "naaku jazz ante chala istam", "sare"],
+)
+def test_romanised_telugu_is_telugu(text):
+    assert detect_language(text) == "te"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["My friend Ela is here", "I love chala things", "Anna went home", "Tell me about your cat Miso", "What's up?"],
+)
+def test_english_with_lookalike_words_stays_english(text):
+    assert detect_language(text) == "en"
+
+
+async def test_romanised_telugu_gets_a_telugu_script_reply(make_engine, store, fake_llm_factory, collect):
+    llm = fake_llm_factory(["[happy] నేను బాగున్నాను!"])
+    events = await collect(make_engine(llm).respond(store.create_conversation(), "ela unnavu?"))
+    instruction = llm.calls[0]["messages"][-2]["content"]
+    assert instruction == reply_instruction("te", romanised=True)
+    assert "English letters" in instruction and "Telugu script" in instruction
+    assert llm.calls[0]["messages"][-1]["content"] == "ఎలా ఉన్నావు?"  # the model gets Telugu script
+    assert events[0].user_message.content == "ela unnavu?"  # the chat keeps what was typed
+    assert events[-1].message.content == "నేను బాగున్నాను!"
+
+
+async def test_telugu_emotion_tags_are_understood_not_shown(make_engine, store, fake_llm_factory, collect):
+    llm = fake_llm_factory(["[సంతోషంగా] నాకు జాజ్ ఇష్టం. [నవ్వుతూ] చాలా!"])
+    events = await collect(make_engine(llm).respond(store.create_conversation(), "మీకు సంగీతం ఇష్టమా?"))
+    assert events[-1].message.content == "నాకు జాజ్ ఇష్టం. చాలా!"
+    assert events[-1].message.emotion == "happy"
 
 
 async def test_switching_language_mid_conversation(make_engine, store, fake_llm_factory, collect):
