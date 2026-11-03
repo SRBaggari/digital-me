@@ -6,11 +6,13 @@ from .kokoro_engine import KokoroEngine
 from .mms_engine import MmsEngine
 from .multilingual import LanguageRouter
 from .preferences import VoicePreferences, VoiceUpdate
+from .syspin_engine import SyspinEngine
 
 __all__ = [
     "KokoroEngine",
     "LanguageRouter",
     "MmsEngine",
+    "SyspinEngine",
     "Synthesis",
     "TTSEngine",
     "TTSError",

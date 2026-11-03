@@ -14,6 +14,7 @@ server:
 voice:                                   # defaults; can also be changed in the app
   enabled: true
   engine: "kokoro"
+  gender: "female"                       # female or male voices, in English and Telugu
   voice: "af_heart"                      # see the voice list in the app's settings
   speed: 1.0                             # 0.5 - 2.0
   acknowledge: true                      # say "Hmm." as soon as you stop talking, so it feels instant

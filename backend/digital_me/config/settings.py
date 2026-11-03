@@ -69,6 +69,8 @@ class VoiceSettings(BaseModel):
 
     enabled: bool = True
     engine: Literal["kokoro"] = "kokoro"
+    # Which voices are offered, in every language (the person's voice should match them).
+    gender: Literal["female", "male"] = "female"
     voice: str = Field(default="af_heart", min_length=1, max_length=64)
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
     # Say a short "Hmm." the moment the user stops talking, so the reply feels immediate.
