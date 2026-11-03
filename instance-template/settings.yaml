@@ -16,6 +16,7 @@ voice:                                   # defaults; can also be changed in the 
   engine: "kokoro"
   voice: "af_heart"                      # see the voice list in the app's settings
   speed: 1.0                             # 0.5 - 2.0
+  acknowledge: true                      # say "Hmm." as soon as you stop talking, so it feels instant
 
 listening:                               # talking to Digital Me through the microphone
   enabled: true

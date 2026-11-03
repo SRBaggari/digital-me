@@ -71,6 +71,8 @@ class VoiceSettings(BaseModel):
     engine: Literal["kokoro"] = "kokoro"
     voice: str = Field(default="af_heart", min_length=1, max_length=64)
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
+    # Say a short "Hmm." the moment the user stops talking, so the reply feels immediate.
+    acknowledge: bool = True
 
 
 WHISPER_MODELS = ("tiny.en", "base.en", "small.en", "medium.en", "tiny", "base", "small", "medium", "large-v3")

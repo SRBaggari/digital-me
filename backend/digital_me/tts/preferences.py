@@ -15,6 +15,7 @@ class VoiceUpdate(BaseModel):
     enabled: bool | None = None
     voice: str | None = Field(default=None, min_length=1, max_length=64)
     speed: float | None = Field(default=None, ge=0.5, le=2.0)
+    acknowledge: bool | None = None
 
 
 class VoicePreferences(Preferences[VoiceSettings]):
