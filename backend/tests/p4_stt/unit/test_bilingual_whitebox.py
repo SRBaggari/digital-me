@@ -40,9 +40,53 @@ def test_unsupported_top_language_is_ignored():
     assert transcriber.detect(np.zeros(100)) == "te"
 
 
-def test_missing_scores_count_as_zero():
-    transcriber, *_ = bilingual({"fr": 0.9, "en": 0.01})
+def test_any_non_english_top_guess_means_telugu():
+    # measured: Telugu speech is often guessed as Hindi, Tamil, Japanese, Korean...
+    for top in ["hi", "ta", "ja", "ko", "fr"]:
+        transcriber, *_ = bilingual({top: 0.4, "en": 0.3, "te": 0.05})
+        assert transcriber.detect(np.zeros(100)) == "te", top
+
+
+def test_english_top_guess_means_english():
+    transcriber, *_ = bilingual({"en": 0.5, "hi": 0.3, "te": 0.2})
     assert transcriber.detect(np.zeros(100)) == "en"
+
+
+class ScoredWhisper(FakeWhisper):
+    def __init__(self, text, language, confidence):
+        super().__init__(text, language)
+        self.confidence = confidence
+
+    def transcribe(self, audio):
+        self.heard += 1
+        return Transcript(self.text, 1.0, self.language, self.confidence)
+
+
+def scored(probs, en_confidence):
+    model, _ = detector(probs)
+    en = ScoredWhisper("E.M. Chest to Naru.", "en", en_confidence)
+    te = ScoredWhisper("ఏం చేస్తున్నారు", "te", -0.01)
+    return BilingualTranscriber({"en": en, "te": te}, detector_factory=lambda: model), en, te
+
+
+def test_hesitant_english_with_garbled_transcript_is_retried_as_telugu():
+    transcriber, en, te = scored({"en": 0.45, "hi": 0.3}, en_confidence=-0.9)
+    result = transcriber.transcribe(np.zeros(100))
+    assert (result.text, result.language) == ("ఏం చేస్తున్నారు", "te")
+    assert en.heard == 1 and te.heard == 1
+
+
+def test_confident_english_detection_is_kept_even_if_transcript_is_unsure():
+    # "Okay" scored -0.88 in the English model but the detector was 81-85% sure of English
+    transcriber, en, te = scored({"en": 0.85}, en_confidence=-0.9)
+    assert transcriber.transcribe(np.zeros(100)).language == "en"
+    assert te.heard == 0
+
+
+def test_hesitant_english_with_clear_transcript_is_kept():
+    transcriber, en, te = scored({"en": 0.45, "hi": 0.3}, en_confidence=-0.2)
+    assert transcriber.transcribe(np.zeros(100)).language == "en"
+    assert te.heard == 0
 
 
 def test_single_language_skips_detection():
