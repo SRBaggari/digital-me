@@ -8,7 +8,7 @@ import { MessageBubble } from "./MessageBubble";
 export const SUGGESTIONS = [
   "Tell me a little about yourself.",
   "What do you enjoy doing?",
-  "How would your friends describe you?",
+  "మీ గురించి కొంచెం చెప్పండి.", // "Tell me a little about yourself." in Telugu
 ];
 
 interface Props {
@@ -52,7 +52,9 @@ export function ChatPanel({ name, state, avatarState, responding, onSend, onStop
         {empty && (
           <div className="chat__empty">
             <p className="chat__empty-title">Start a conversation with {name}</p>
-            <p className="chat__empty-hint">Everything stays on this computer.</p>
+            <p className="chat__empty-hint">
+              Speak or type in English or Telugu · everything stays on this computer.
+            </p>
             <div className="chips">
               {SUGGESTIONS.map((suggestion) => (
                 <button
