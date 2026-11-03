@@ -55,6 +55,17 @@ async def test_real_model_answers_romanised_telugu_in_telugu_script(live_llm, pr
     assert "[" not in reply, reply  # emotion tags, even Telugu ones, never reach the text
 
 
+async def test_real_model_never_refuses_telugu(live_llm, profile, store, collect):
+    """Regression: 'em chesthunaru' was answered with 'That's Telugu. I don't understand.'"""
+    from digital_me.language import detect_language
+
+    engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.2))
+    events = await collect(engine.respond(store.create_conversation(), "em chesthunaru"))
+    reply = events[-1].message.content
+    assert detect_language(reply) == "te", reply
+    assert "understand" not in reply.lower(), reply
+
+
 def is_romanised(text):
     return not any(0x0C00 <= ord(c) <= 0x0C7F for c in text)
 

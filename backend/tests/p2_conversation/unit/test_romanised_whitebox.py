@@ -33,6 +33,18 @@ def test_short_ambiguous_words_do_not_trigger_detection():
     assert not is_romanised_telugu("Anna and amma went to the mall")
 
 
+def test_normalise_folds_common_variants():
+    assert rt.normalise("chesthunaru") == rt.normalise("chestunnaru") == rt.normalise("chesthunnaaru")
+    assert rt.normalise("unnav") == rt.normalise("unnavu")
+
+
+def test_english_words_never_count_through_normalisation():
+    # "to" normalises like the Telugu "tho"; "the", "in", "this" must not become Telugu either
+    assert not is_romanised_telugu("I want to go to the shop")
+    assert not is_romanised_telugu("In this, you know.")
+    assert not is_romanised_telugu("And you taste the Mardis")
+
+
 def test_one_word_messages_need_a_clear_telugu_word():
     assert is_romanised_telugu("bagunnava?")
     assert not is_romanised_telugu("Hello")

@@ -31,6 +31,24 @@ def test_mixed_english_words_kept(romanised, telugu):
     assert to_telugu_script(romanised) == telugu
 
 
+@pytest.mark.parametrize(
+    "variant, telugu",
+    [
+        ("em chesthunaru", "ఏం చేస్తున్నారు"),  # from a real conversation: was answered in English
+        ("em chestunnaru", "ఏం చేస్తున్నారు"),
+        ("ela unnav", "ఎలా ఉన్నావు"),
+        ("thinnava", "తిన్నావా"),
+        ("bagunnaaraa", "బాగున్నారా"),
+        ("nuvvu ippudu ekkada unnav", "నువ్వు ఇప్పుడు ఎక్కడ ఉన్నావు"),
+    ],
+)
+def test_spelling_variants(variant, telugu):
+    from digital_me.language import detect_language
+
+    assert detect_language(variant) == "te"
+    assert to_telugu_script(variant) == telugu
+
+
 def test_empty_and_symbols_unchanged():
     assert to_telugu_script("") == ""
     assert to_telugu_script("123 !? 😊") == "123 !? 😊"
