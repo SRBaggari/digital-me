@@ -148,7 +148,10 @@ and it replies in Telugu, spoken with a Telugu voice; switch back to English and
 | Understanding speech | Whisper `base.en` | Whisper fine-tuned on Telugu by IIT Madras SPRING Lab (`vasista22/whisper-telugu-base`, Apache-2.0) |
 | Deciding the language | Whisper language detection (speech) or the script (typed text) | same |
 | Writing the reply | gemma3:4b | gemma3:4b, told to answer in Telugu script |
-| Speaking the reply | Kokoro | Meta MMS-TTS Telugu (`facebook/mms-tts-tel`, **CC-BY-NC-4.0: non-commercial use only**) |
+| Speaking the reply | Kokoro | Female: SYSPIN VITS (`SYSPIN/tts_vits_coquiai_TeluguFemale`, CC-BY-4.0). Male: Meta MMS-TTS (`facebook/mms-tts-tel`, **CC-BY-NC-4.0: non-commercial only**) |
+
+Voices match the person: `voice.gender: female` (the default) offers only female voices, in
+English and in Telugu; `male` does the same for male voices.
 
 * Everything runs on this computer. The Telugu models download once (MMS about 145 MB, the
   Whisper models about 290 MB); the Telugu speech model is converted to a faster format on first
@@ -161,7 +164,11 @@ and it replies in Telugu, spoken with a Telugu voice; switch back to English and
   "mee pilli peru enti?"). Romanised Telugu is recognised from common Telugu words, converted to
   Telugu script for the model (which can't read romanised Telugu itself), and answered in Telugu
   script so it can be spoken. English words inside ("nenu chala happy ga unnanu") stay English.
-  Common chat words are spelled correctly; rarer ones are converted approximately.
+  Common chat words are spelled correctly, including spelling variants ("em chesthunaru",
+  "ela unnav"); rarer ones are converted approximately.
+* Speech is treated as English only when Whisper is clearly hearing English; otherwise it goes to
+  the Telugu model. (Whisper often mistakes Telugu for Hindi, Tamil and others, which used to send
+  Telugu speech to the English model and produce nonsense.)
 * The Telugu voice is more robotic than the English one, and English words inside Telugu replies
   are written and spoken in Telugu letters.
 * English only? Set `listening.languages: ["en"]` and `llm.model: llama3.2:3b` in
