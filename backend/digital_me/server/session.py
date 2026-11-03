@@ -24,6 +24,7 @@ from ..conversation import (
 )
 from ..llm import LLMError
 from ..stt import SpeechDetector
+from ..tts import TTSError
 from .listener import Hearing, Listener
 from .protocol import (
     Interrupt,
@@ -127,6 +128,7 @@ class Session:
             on_speech_start=self._on_speech_start,
             on_transcript=self._on_transcript,
             send=self._send,
+            on_speech_end=self._on_speech_end,
         )
         await self._send({"type": "mic", "on": True})
 
@@ -145,6 +147,19 @@ class Session:
             await self.interrupt()
             self._client_playing = False
             await self._send({"type": "barge_in"})
+
+    async def _on_speech_end(self) -> None:
+        """Acknowledge instantly ("Hmm.") while the words are transcribed and answered."""
+        if self._ignore_utterance or self._speech is None:
+            return
+        voice = self._speech.preferences.get()
+        if not (voice.enabled and voice.acknowledge):
+            return
+        try:
+            event = await asyncio.to_thread(self._speech.acknowledger.event, voice.voice, voice.speed)
+        except TTSError:
+            return  # a missing acknowledgement is not worth an error message
+        await self._send(event)
 
     async def _on_transcript(self, text: str, language: str | None = None) -> None:
         if self._ignore_utterance:

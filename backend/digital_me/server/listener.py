@@ -43,11 +43,13 @@ class Listener:
         on_speech_start: Callable[[], Awaitable[None]],
         on_transcript: Callable[[str, str | None], Awaitable[None]],
         send: Send,
+        on_speech_end: Callable[[], Awaitable[None]] | None = None,
     ):
         self._detector = detector
         self._transcriber = transcriber
         self._on_speech_start = on_speech_start
         self._on_transcript = on_transcript
+        self._on_speech_end = on_speech_end
         self._send = send
         self._jobs: asyncio.Queue[np.ndarray | None] = asyncio.Queue()
         self._worker = asyncio.create_task(self._transcribe_in_order())
@@ -71,6 +73,8 @@ class Listener:
                 await self._send({"type": "user_speaking", "speaking": False})
                 await self._send({"type": "transcribing"})
                 self._jobs.put_nowait(event.audio)
+                if self._on_speech_end is not None:
+                    await self._on_speech_end()
 
     async def close(self) -> None:
         self._worker.cancel()
