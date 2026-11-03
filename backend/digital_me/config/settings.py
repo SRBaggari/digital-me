@@ -29,7 +29,8 @@ class LLMSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     base_url: str = "http://127.0.0.1:11434"
-    model: str = Field(default="llama3.2:3b", min_length=1)
+    # gemma3:4b writes natural Telugu; llama3.2:3b is faster but its Telugu is not usable.
+    model: str = Field(default="gemma3:4b", min_length=1)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     context_turns: int = Field(default=12, ge=1, le=100)
     num_ctx: int = Field(default=4096, ge=512, le=131072)
@@ -81,9 +82,12 @@ class ListeningSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = True
-    model: str = "base.en"  # base.en ~1 s per sentence on CPU; small.en is more accurate but ~2.5 s
+    model: str = "base.en"  # English: base.en ~1 s per sentence on CPU; small.en more accurate, ~2.5 s
     language: str = Field(default="en", min_length=2, max_length=8)
     barge_in: bool = True  # start talking to interrupt Digital Me while it speaks
+    # Languages Digital Me understands and answers in. It replies in the language it is spoken to.
+    languages: list[str] = Field(default_factory=lambda: ["en", "te"])
+    telugu_model: Literal["base", "small"] = "base"  # Telugu-tuned Whisper; base ~1.5 s, small ~3.5 s
 
     @field_validator("model")
     @classmethod
@@ -91,6 +95,16 @@ class ListeningSettings(BaseModel):
         if value not in WHISPER_MODELS:
             raise ValueError(f"model must be one of {', '.join(WHISPER_MODELS)}")
         return value
+
+    @field_validator("languages")
+    @classmethod
+    def _supported_languages(cls, value: list[str]) -> list[str]:
+        from ..language import LANGUAGES
+
+        unknown = [code for code in value if code not in LANGUAGES]
+        if unknown or not value:
+            raise ValueError(f"languages must be a non-empty subset of {sorted(LANGUAGES)}")
+        return list(dict.fromkeys(value))  # keep order, drop duplicates
 
 
 class Settings(BaseModel):

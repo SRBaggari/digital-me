@@ -2,7 +2,7 @@
 
 llm:
   base_url: "http://127.0.0.1:11434"   # local Ollama
-  model: "llama3.2:3b"
+  model: "gemma3:4b"                     # writes good Telugu; llama3.2:3b is faster, English only
   temperature: 0.7
   context_turns: 12                      # previous user/assistant exchanges sent to the model
   num_ctx: 4096
@@ -19,6 +19,8 @@ voice:                                   # defaults; can also be changed in the 
 
 listening:                               # talking to Digital Me through the microphone
   enabled: true
-  model: "base.en"                       # base.en is fast; small.en understands accents better but is slower
+  model: "base.en"                       # English: base.en is fast; small.en understands accents better but is slower
   language: "en"
   barge_in: true                         # start talking to interrupt it while it speaks
+  languages: ["en", "te"]                # it answers in the language you speak or type
+  telugu_model: "base"                   # Telugu speech model: base (faster) or small
