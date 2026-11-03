@@ -147,9 +147,10 @@ export const VOICE: VoiceDTO = {
 };
 
 export const LISTENING: ListeningDTO = {
-  settings: { enabled: true, barge_in: true },
+  settings: { enabled: true, barge_in: true, telugu_model: "base" },
   model: "base.en",
   language: "en",
+  languages: ["en", "te"],
   status: "ready",
 };
 

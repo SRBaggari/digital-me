@@ -104,6 +104,24 @@ describe("talking to Digital Me with your voice", () => {
     expect(screen.queryByRole("button", { name: /microphone/ })).not.toBeInTheDocument();
   });
 
+  it("more accurate Telugu recognition can be switched on and off", async () => {
+    const { api } = await start();
+    await userEvent.click(screen.getByRole("button", { name: "Voice settings" }));
+    const toggle = screen.getByRole("switch", { name: /More accurate Telugu recognition/ });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    expect(api.updateListening).toHaveBeenCalledWith({ telugu_model: "small" });
+    await waitFor(() => expect(toggle).toBeChecked());
+    await userEvent.click(toggle);
+    expect(api.updateListening).toHaveBeenCalledWith({ telugu_model: "base" });
+  });
+
+  it("no Telugu accuracy option for an English-only instance", async () => {
+    await start({ api: fakeApi({ listening: vi.fn(async () => ({ ...LISTENING, languages: ["en"] })) }) });
+    await userEvent.click(screen.getByRole("button", { name: "Voice settings" }));
+    expect(screen.queryByRole("switch", { name: /Telugu recognition/ })).not.toBeInTheDocument();
+  });
+
   it("the instant acknowledgement can be switched off", async () => {
     const { api } = await start();
     await userEvent.click(screen.getByRole("button", { name: "Voice settings" }));
