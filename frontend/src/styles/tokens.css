@@ -15,7 +15,9 @@
 :root {
   color-scheme: dark;
 
-  --font-sans: "Inter Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Inter has no Telugu letters; the browser takes those from Noto Sans Telugu. */
+  --font-sans: "Inter Variable", "Noto Sans Telugu Variable", "Nirmala UI", "Segoe UI", system-ui,
+    -apple-system, sans-serif;
 
   --bg: #07080c;
   --bg-raised: #0d0f15;

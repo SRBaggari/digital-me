@@ -1,4 +1,5 @@
 import "@fontsource-variable/inter";
+import "@fontsource-variable/noto-sans-telugu"; // bundled: Telugu text without external font requests
 import "./styles/tokens.css";
 import "./styles/app.css";
 
