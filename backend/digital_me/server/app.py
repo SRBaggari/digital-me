@@ -34,6 +34,7 @@ from ..tts import (
     KokoroEngine,
     LanguageRouter,
     MmsEngine,
+    SyspinEngine,
     TTSEngine,
     TTSError,
     VoicePreferences,
@@ -95,18 +96,22 @@ def build_context(
         store=ConversationStore(database),
         llm=llm or OllamaClient(settings.llm.base_url, settings.llm.model),
         database=database,
-        speech=Speech(tts or _speech_engine(listening.languages), VoicePreferences(database, settings.voice)),
+        speech=Speech(
+            tts or _speech_engine(listening.languages, settings.voice.gender),
+            VoicePreferences(database, settings.voice),
+        ),
         hearing=hearing
         or Hearing(_transcriber(listening), SileroVAD, ListeningPreferences(database, listening)),
     )
 
 
-def _speech_engine(languages: list[str]) -> TTSEngine:
-    """Kokoro for English, MMS for Telugu; each sentence is voiced in its own language."""
+def _speech_engine(languages: list[str], gender: str) -> TTSEngine:
+    """Kokoro for English; for Telugu SYSPIN's female voice or MMS's male voice. Each sentence
+    is voiced in its own language, and only voices of the instance's gender are offered."""
     engines: dict[str, TTSEngine] = {"en": KokoroEngine()}
     if "te" in languages:
-        engines["te"] = MmsEngine()
-    return LanguageRouter(engines) if len(engines) > 1 else engines["en"]
+        engines["te"] = SyspinEngine() if gender == "female" else MmsEngine()
+    return LanguageRouter(engines, gender=gender)
 
 
 def _transcriber(listening: ListeningSettings) -> Transcriber:
@@ -181,10 +186,11 @@ async def _warm_up_speech(context: AppContext) -> None:
 
 def _voice_payload(speech: Speech, status: str) -> dict:
     current = speech.preferences.get()
+    effective = getattr(speech.engine, "effective_voice", lambda voice: voice)
     return {
         "settings": {
             "enabled": current.enabled,
-            "voice": current.voice,
+            "voice": effective(current.voice),
             "speed": current.speed,
             "acknowledge": current.acknowledge,
         },
