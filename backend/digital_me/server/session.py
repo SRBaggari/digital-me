@@ -265,6 +265,13 @@ class Session:
     async def _send(self, event: dict[str, Any]) -> None:
         if self._closed:
             return
+        if event.get("type") == "audio":
+            # Treat Digital Me as audible from the moment audio leaves the server, not when the
+            # browser reports playback: otherwise the microphone can catch the first moments of
+            # its own voice ("Hmm.") and turn them into a fake user message.
+            self._client_playing = True
+            if self._listener is not None:
+                self._listener.playback = True
         try:
             await self._send_raw(event)
         except Exception:  # connection already gone
