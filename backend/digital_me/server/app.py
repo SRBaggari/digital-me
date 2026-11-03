@@ -19,8 +19,27 @@ from ..config.instance import REPO_ROOT
 from ..conversation import ConversationEngine, ConversationNotFoundError, ConversationStore
 from ..db import Database
 from ..llm import LLMClient, OllamaClient
-from ..stt import ListeningPreferences, ListeningUpdate, SileroVAD, WhisperTranscriber
-from ..tts import KokoroEngine, TTSEngine, TTSError, VoicePreferences, VoiceUpdate, to_wav_bytes
+from ..config import ListeningSettings
+from ..stt import (
+    BilingualTranscriber,
+    ListeningPreferences,
+    ListeningUpdate,
+    SileroVAD,
+    Transcriber,
+    WhisperTranscriber,
+    telugu_model,
+)
+from ..stt.whisper import _default_model_factory
+from ..tts import (
+    KokoroEngine,
+    LanguageRouter,
+    MmsEngine,
+    TTSEngine,
+    TTSError,
+    VoicePreferences,
+    VoiceUpdate,
+    to_wav_bytes,
+)
 from .listener import Hearing
 from .protocol import conversation_to_dict, message_to_dict
 from .security import LOCAL_HOSTNAMES, is_origin_allowed
@@ -76,14 +95,34 @@ def build_context(
         store=ConversationStore(database),
         llm=llm or OllamaClient(settings.llm.base_url, settings.llm.model),
         database=database,
-        speech=Speech(tts or KokoroEngine(), VoicePreferences(database, settings.voice)),
+        speech=Speech(tts or _speech_engine(listening.languages), VoicePreferences(database, settings.voice)),
         hearing=hearing
-        or Hearing(
-            WhisperTranscriber(listening.model, listening.language),
-            SileroVAD,
-            ListeningPreferences(database, listening),
-        ),
+        or Hearing(_transcriber(listening), SileroVAD, ListeningPreferences(database, listening)),
     )
+
+
+def _speech_engine(languages: list[str]) -> TTSEngine:
+    """Kokoro for English, MMS for Telugu; each sentence is voiced in its own language."""
+    engines: dict[str, TTSEngine] = {"en": KokoroEngine()}
+    if "te" in languages:
+        engines["te"] = MmsEngine()
+    return LanguageRouter(engines) if len(engines) > 1 else engines["en"]
+
+
+def _transcriber(listening: ListeningSettings) -> Transcriber:
+    transcribers: dict[str, WhisperTranscriber] = {}
+    if "en" in listening.languages:
+        transcribers["en"] = WhisperTranscriber(listening.model, "en")
+    if "te" in listening.languages:
+        size = listening.telugu_model
+        transcribers["te"] = WhisperTranscriber(
+            f"telugu-{size}",
+            "te",
+            model_factory=lambda _name: _default_model_factory(str(telugu_model.ensure_model(size))),
+        )
+    if len(transcribers) == 1:
+        return next(iter(transcribers.values()))
+    return BilingualTranscriber(transcribers)
 
 
 async def _warm_up_hearing(context: AppContext) -> None:
