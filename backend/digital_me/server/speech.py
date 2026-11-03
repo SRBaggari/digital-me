@@ -6,6 +6,8 @@ import asyncio
 import logging
 import re
 from collections.abc import Awaitable, Callable
+
+import numpy as np
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,12 +41,61 @@ def speakable_chunks(text: str, first: bool) -> list[str]:
     return [text]
 
 
+ACK_TEXT = "Hmm."  # understood the same way in English and Telugu conversation
+_SILENCE = 0.02
+
+
+def trim_silence(audio: np.ndarray, sample_rate: int, keep_s: float = 0.05) -> np.ndarray:
+    """Cut leading and trailing silence (keeping a few ms) so a short sound adds no delay."""
+    loud = np.flatnonzero(np.abs(audio) > _SILENCE)
+    if loud.size == 0:
+        return audio[:0]
+    keep = int(keep_s * sample_rate)
+    return audio[max(0, loud[0] - keep) : min(len(audio), loud[-1] + 1 + keep)]
+
+
+class Acknowledger:
+    """A short "Hmm." played the instant the user stops talking, while the reply is prepared.
+
+    Pre-generated per voice and speed, so playing it costs nothing at conversation time.
+    """
+
+    def __init__(self, engine: TTSEngine):
+        self._engine = engine
+        self._cache: dict[tuple[str, float], dict[str, Any]] = {}
+
+    def event(self, voice: str, speed: float) -> dict[str, Any]:
+        """Blocking on first use per voice/speed; call from a thread or warm up first."""
+        key = (voice, speed)
+        if key not in self._cache:
+            synthesis = self._engine.synthesize(ACK_TEXT, voice, speed)
+            audio = trim_silence(synthesis.audio, synthesis.sample_rate)
+            self._cache[key] = {
+                "type": "audio",
+                "index": -1,
+                "text": "",  # not a subtitle
+                "emotion": "neutral",
+                "ack": True,
+                "sample_rate": synthesis.sample_rate,
+                "duration": round(len(audio) / synthesis.sample_rate, 3),
+                "format": "wav",
+                "data": to_wav_base64(audio, synthesis.sample_rate),
+                "words": [],
+            }
+        return self._cache[key]
+
+
 @dataclass
 class Speech:
     """Everything a session needs to speak: the engine and the instance's voice preferences."""
 
     engine: TTSEngine
     preferences: VoicePreferences
+    acknowledger: Acknowledger | None = None
+
+    def __post_init__(self) -> None:
+        if self.acknowledger is None:
+            self.acknowledger = Acknowledger(self.engine)
 
 
 class SentenceSpeaker:
