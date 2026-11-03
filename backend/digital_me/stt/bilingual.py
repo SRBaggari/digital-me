@@ -17,7 +17,8 @@ log = logging.getLogger(__name__)
 
 def _default_detector_factory() -> Any:
     # Multilingual Whisper is poor at *transcribing* Telugu but reliable at *recognising* it.
-    return _default_model_factory("base")
+    # "tiny" was as accurate as "base" here (8/8 English/Telugu clips) in half the time (~0.33 s).
+    return _default_model_factory("tiny")
 
 
 class BilingualTranscriber:
