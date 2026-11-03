@@ -74,6 +74,7 @@ class AppContext:
     engine: ConversationEngine = field(init=False)
     speech_status: str = field(default="off", init=False)  # off | loading | ready | error: ...
     hearing_status: str = field(default="off", init=False)
+    background_tasks: set[asyncio.Task[None]] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
         self.engine = ConversationEngine(self.profile, self.store, self.llm, self.settings.llm)
@@ -88,7 +89,8 @@ def build_context(
     profile = load_profile(instance.profile_path)
     settings = load_settings(instance.settings_path)
     database = Database(instance.database_path, instance.name)
-    listening = settings.listening
+    listening_preferences = ListeningPreferences(database, settings.listening)
+    listening = listening_preferences.get()  # settings.yaml plus changes made in the app
     return AppContext(
         instance_name=instance.name,
         profile=profile,
@@ -100,8 +102,16 @@ def build_context(
             tts or _speech_engine(listening.languages, settings.voice.gender),
             VoicePreferences(database, settings.voice),
         ),
-        hearing=hearing
-        or Hearing(_transcriber(listening), SileroVAD, ListeningPreferences(database, listening)),
+        hearing=hearing or Hearing(_transcriber(listening), SileroVAD, listening_preferences),
+    )
+
+
+def telugu_transcriber(size: str) -> WhisperTranscriber:
+    """Telugu-tuned Whisper of the given size, converted on first use."""
+    return WhisperTranscriber(
+        f"telugu-{size}",
+        "te",
+        model_factory=lambda _name: _default_model_factory(str(telugu_model.ensure_model(size))),
     )
 
 
@@ -119,12 +129,7 @@ def _transcriber(listening: ListeningSettings) -> Transcriber:
     if "en" in listening.languages:
         transcribers["en"] = WhisperTranscriber(listening.model, "en")
     if "te" in listening.languages:
-        size = listening.telugu_model
-        transcribers["te"] = WhisperTranscriber(
-            f"telugu-{size}",
-            "te",
-            model_factory=lambda _name: _default_model_factory(str(telugu_model.ensure_model(size))),
-        )
+        transcribers["te"] = telugu_transcriber(listening.telugu_model)
     if len(transcribers) == 1:
         return next(iter(transcribers.values()))
     return BilingualTranscriber(transcribers)
@@ -142,6 +147,28 @@ async def _warm_up_hearing(context: AppContext) -> None:
     except Exception as exc:
         log.exception("Speech recognition failed to load")
         context.hearing_status = f"error: {exc}"
+
+
+async def _swap_telugu_model(context: AppContext, size: str) -> None:
+    """Switch Telugu recognition to another model size while running. The new model loads in
+    the background (converted on first use); the old one keeps working until it is ready."""
+    transcriber = context.hearing.transcriber if context.hearing else None
+    if not isinstance(transcriber, BilingualTranscriber) or "te" not in transcriber.languages:
+        return
+    replacement = telugu_transcriber(size)
+    context.hearing_status = "loading"
+
+    async def load() -> None:
+        try:
+            await asyncio.to_thread(replacement.warm_up)
+            transcriber.replace("te", replacement)
+            context.hearing_status = "ready"
+        except Exception as exc:
+            log.exception("Could not load the %s Telugu model", size)
+            context.hearing_status = f"error: {exc}"
+
+    context.background_tasks.add(task := asyncio.create_task(load()))
+    task.add_done_callback(context.background_tasks.discard)
 
 
 async def _warm_up_llm(context: AppContext) -> None:
@@ -222,9 +249,14 @@ def create_app(context: AppContext, frontend_dist: Path | None = FRONTEND_DIST) 
             raise HTTPException(status_code=404, detail="Voice input is not available")
         current = context.hearing.preferences.get()
         return {
-            "settings": {"enabled": current.enabled, "barge_in": current.barge_in},
+            "settings": {
+                "enabled": current.enabled,
+                "barge_in": current.barge_in,
+                "telugu_model": current.telugu_model,
+            },
             "model": current.model,
             "language": current.language,
+            "languages": current.languages,
             "status": context.hearing_status,
         }
 
@@ -233,9 +265,12 @@ def create_app(context: AppContext, frontend_dist: Path | None = FRONTEND_DIST) 
         return listening_payload()
 
     @app.put("/api/listening")
-    def update_listening(change: ListeningUpdate) -> dict:
+    async def update_listening(change: ListeningUpdate) -> dict:
         listening_payload()  # 404 if unavailable
-        context.hearing.preferences.update(change)
+        before = context.hearing.preferences.get().telugu_model
+        after = context.hearing.preferences.update(change).telugu_model
+        if after != before:
+            await _swap_telugu_model(context, after)
         return listening_payload()
 
     @app.get("/api/voice")
