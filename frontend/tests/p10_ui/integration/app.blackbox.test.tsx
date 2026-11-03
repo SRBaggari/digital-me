@@ -82,6 +82,18 @@ describe("Digital Me app (user's point of view)", () => {
     expect(socket.sent).toEqual([{ type: "user_message", text: "Tell me a little about yourself." }]);
   });
 
+  it("holds a conversation in Telugu", async () => {
+    const { socket } = start();
+    await userEvent.click(screen.getByRole("button", { name: "మీ గురించి కొంచెం చెప్పండి." }));
+    expect(socket.sent).toEqual([{ type: "user_message", text: "మీ గురించి కొంచెం చెప్పండి." }]);
+    act(() => {
+      socket.emit({ type: "user_message", message: dto({ role: "user", content: "మీ గురించి కొంచెం చెప్పండి." }) });
+      socket.emit({ type: "assistant_done", message: dto({ content: "నేను సాఫ్ట్‌వేర్ ఇంజనీర్‌ని." }) });
+    });
+    expect(within(screen.getByRole("log")).getByText("నేను సాఫ్ట్‌వేర్ ఇంజనీర్‌ని.")).toBeInTheDocument();
+    expect(screen.getByText(/English or Telugu/)).toBeInTheDocument();
+  });
+
   it("starts a new conversation", async () => {
     const { socket } = start();
     await userEvent.click(screen.getByRole("button", { name: "New conversation" }));
