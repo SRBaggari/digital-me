@@ -169,7 +169,10 @@ async def _warm_up_speech(context: AppContext) -> None:
         return
     context.speech_status = "loading"
     try:
-        await asyncio.to_thread(speech.engine.warm_up, speech.preferences.get().voice)
+        voice = speech.preferences.get()
+        await asyncio.to_thread(speech.engine.warm_up, voice.voice)
+        # Pre-generate the "Hmm." so the first acknowledgement is instant too.
+        await asyncio.to_thread(speech.acknowledger.event, voice.voice, voice.speed)
         context.speech_status = "ready"
     except Exception as exc:  # report in /api/status instead of crashing the server
         log.exception("Voice engine failed to load")
@@ -179,7 +182,12 @@ async def _warm_up_speech(context: AppContext) -> None:
 def _voice_payload(speech: Speech, status: str) -> dict:
     current = speech.preferences.get()
     return {
-        "settings": {"enabled": current.enabled, "voice": current.voice, "speed": current.speed},
+        "settings": {
+            "enabled": current.enabled,
+            "voice": current.voice,
+            "speed": current.speed,
+            "acknowledge": current.acknowledge,
+        },
         "voices": [asdict(v) for v in speech.engine.voices()],
         "engine": speech.engine.name,
         "status": status,
