@@ -73,4 +73,6 @@ class WhisperTranscriber:
             except Exception as exc:
                 log.exception("Transcription failed")
                 raise STTError(f"Could not transcribe speech: {exc}") from exc
-        return Transcript(text=" ".join(t for t in kept if t).strip(), duration=duration)
+        return Transcript(
+            text=" ".join(t for t in kept if t).strip(), duration=duration, language=self.language
+        )

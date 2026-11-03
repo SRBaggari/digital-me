@@ -16,6 +16,7 @@ class STTError(Exception):
 class Transcript:
     text: str
     duration: float  # seconds of audio
+    language: str | None = None  # "en" / "te" when the transcriber knows it
 
 
 class Transcriber(Protocol):
