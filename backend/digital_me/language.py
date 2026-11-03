@@ -31,9 +31,12 @@ def detect_language(text: str) -> str | None:
 def reply_instruction(language: str) -> str:
     """Instruction appended to each turn so even small models answer in the right language."""
     if language == "te":
+        # Names and English words must be in Telugu script too: the Telugu voice cannot read
+        # Latin letters (an earlier version replied just "Pixel." and stayed silent).
         return (
-            "The user is speaking Telugu. Reply ONLY in Telugu, written in Telugu script "
-            "(తెలుగు లిపి), not in English letters or any other script. Keep the emotion tag in "
-            "English, for example [happy]. Names may stay as they are."
+            "The user is speaking Telugu. Reply ONLY in Telugu, in full sentences, written in "
+            "Telugu script (తెలుగు లిపి). Write names and English words in Telugu letters as they "
+            "sound, for example Miso -> మిసో, jazz -> జాజ్. Do not use English letters or any other "
+            "script. Keep only the emotion tag in English, for example [happy]."
         )
     return "The user is speaking English. Reply in English."
