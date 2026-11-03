@@ -5,6 +5,8 @@ so these tests are not flaky; persona quality is evaluated separately with
 backend/scripts/eval_persona.py.
 """
 
+import re
+
 import pytest
 
 from digital_me.config import LLMSettings
@@ -64,6 +66,26 @@ async def test_real_model_never_refuses_telugu(live_llm, profile, store, collect
     reply = events[-1].message.content
     assert detect_language(reply) == "te", reply
     assert "understand" not in reply.lower(), reply
+
+
+INVENTED_ACTIVITY = re.compile(
+    r"(I.m|I am|I was|I.ve been|I just) (listening|playing|watching|reading|working|cooking)"
+    r"|వింటున్నాను|వింటూ|ఆడుకున్నాను|ఆడుతున్నాను|ఆడుతూ|చూస్తున్నాను"
+)
+
+
+@pytest.mark.parametrize("message", ["ela unnav", "em chesthunaru", "What are you doing right now?"])
+async def test_real_model_does_not_invent_current_activities(live_llm, profile, store, collect, message):
+    """Regression: replies like 'I played with Miso' / 'I'm listening to jazz'."""
+    engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.2))
+    reply = (await collect(engine.respond(store.create_conversation(), message)))[-1].message.content
+    assert not INVENTED_ACTIVITY.search(reply), reply
+
+
+async def test_real_model_asks_to_repeat_nonsense(live_llm, profile, store, collect):
+    engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.2))
+    reply = (await collect(engine.respond(store.create_conversation(), "blue window running fast cheese")))[-1].message.content
+    assert re.search(r"repeat|again|didn.?t (catch|understand)|what do you mean", reply, re.I), reply
 
 
 def is_romanised(text):
