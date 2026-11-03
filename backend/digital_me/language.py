@@ -61,8 +61,21 @@ def detect_language(text: str) -> str | None:
     return "te" if is_romanised_telugu(text) else "en"
 
 
+HONESTY_REMINDER = (
+    " Do not mention anything you are doing now or did today (no music, pets or activities)."
+)
+# The same, in Telugu: when replying in Telugu the model follows a Telugu reminder more closely.
+TELUGU_HONESTY_REMINDER = " ఇప్పుడు లేదా ఈ రోజు మీరు చేసిన పనుల గురించి (సంగీతం, పెంపుడు జంతువులు) చెప్పకండి."
+
+
 def reply_instruction(language: str, romanised: bool = False) -> str:
-    """Instruction appended to each turn so even small models answer in the right language."""
+    """Instruction appended to each turn so even small models answer in the right language
+    (and, measured, stop inventing current activities, which they did mostly in Telugu)."""
+    reminder = HONESTY_REMINDER + (TELUGU_HONESTY_REMINDER if language == "te" else "")
+    return _language_instruction(language, romanised) + reminder
+
+
+def _language_instruction(language: str, romanised: bool) -> str:
     if language == "te":
         # Names and English words must be in Telugu script too: the Telugu voice cannot read
         # Latin letters (an earlier version replied just "Pixel." and stayed silent).
