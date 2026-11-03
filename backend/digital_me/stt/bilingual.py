@@ -66,6 +66,15 @@ class BilingualTranscriber:
         if len(self._transcribers) > 1:
             self.detect(np.zeros(16_000, dtype=np.float32))
 
+    def replace(self, language: str, transcriber: WhisperTranscriber) -> None:
+        """Swap the model for one language (e.g. a more accurate Telugu model) while running."""
+        if language not in self._transcribers:
+            raise ValueError(f"{language!r} is not one of the languages {self.languages}")
+        self._transcribers[language] = transcriber
+
+    def transcriber_for(self, language: str) -> WhisperTranscriber:
+        return self._transcribers[language]
+
     def _other_language(self) -> str:
         return next(code for code in self._transcribers if code != ENGLISH)
 

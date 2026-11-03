@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 from ..config import ListeningSettings
@@ -14,6 +16,7 @@ class ListeningUpdate(BaseModel):
 
     enabled: bool | None = None
     barge_in: bool | None = None
+    telugu_model: Literal["base", "small"] | None = None
 
 
 class ListeningPreferences(Preferences[ListeningSettings]):
