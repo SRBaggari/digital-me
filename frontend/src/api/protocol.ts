@@ -60,6 +60,8 @@ export interface AudioEvent {
   /** base64-encoded WAV */
   data: string;
   words: WordTimingDTO[];
+  /** A short acknowledgement sound, not part of the reply. */
+  ack?: boolean;
 }
 
 export interface VoiceOption {
@@ -73,6 +75,8 @@ export interface VoiceSettingsDTO {
   enabled: boolean;
   voice: string;
   speed: number;
+  /** Say "Hmm." as soon as the user stops talking. */
+  acknowledge?: boolean;
 }
 
 export interface VoiceDTO {

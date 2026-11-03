@@ -115,7 +115,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "voice_enabled":
       return { ...state, voiceEnabled: action.enabled, ...(action.enabled ? {} : { playing: false }) };
     case "clip_start":
-      return { ...state, playing: true, caption: action.text, emotion: toEmotion(action.emotion) };
+      // An acknowledgement ("Hmm.") has no text: it shows as speaking without touching
+      // the subtitle or the expression.
+      return action.text
+        ? { ...state, playing: true, caption: action.text, emotion: toEmotion(action.emotion) }
+        : { ...state, playing: true };
     case "playback_idle":
       return { ...state, playing: false };
     case "send": {
