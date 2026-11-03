@@ -82,16 +82,23 @@ class Recorder:
 def test_router_uses_chosen_voice_only_for_default_language():
     en, te = Recorder("en"), Recorder("te")
     router = LanguageRouter({"en": en, "te": te})
-    router.synthesize("Hello there.", "af_bella", 1.2)
-    router.synthesize("నమస్కారం.", "af_bella", 1.2)
-    assert en.calls == [("Hello there.", "af_bella", 1.2)]
+    router.synthesize("Hello there.", "en_voice", 1.2)
+    router.synthesize("నమస్కారం.", "en_voice", 1.2)
+    assert en.calls == [("Hello there.", "en_voice", 1.2)]
     assert te.calls == [("నమస్కారం.", "te_voice", 1.2)]  # own voice, same speed
+
+
+def test_router_replaces_a_voice_that_is_not_offered():
+    en = Recorder("en")
+    router = LanguageRouter({"en": en})
+    router.synthesize("Hi.", "am_michael", 1.0)
+    assert en.calls[0][1] == "en_voice"
 
 
 def test_router_warms_every_engine_with_the_right_voice():
     en, te = Recorder("en"), Recorder("te")
-    LanguageRouter({"en": en, "te": te}).warm_up("bm_george")
-    assert en.warmed == ["bm_george"] and te.warmed == [None]
+    LanguageRouter({"en": en, "te": te}).warm_up("en_voice")
+    assert en.warmed == ["en_voice"] and te.warmed == [None]
 
 
 def test_router_requires_default_engine():

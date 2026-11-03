@@ -8,13 +8,22 @@ from fastapi.testclient import TestClient
 from digital_me.config import create
 from digital_me.server import build_context, create_app
 from digital_me.server.app import _warm_up_speech
-from digital_me.tts import KokoroEngine, LanguageRouter, MmsEngine
+from digital_me.tts import KokoroEngine, LanguageRouter, MmsEngine, SyspinEngine
 
 
 def test_english_only_instance_uses_kokoro_alone(instances_home):
     instance = create("bob")
     instance.settings_path.write_text("listening:\n  languages: [en]\n", encoding="utf-8")
-    assert isinstance(build_context(instance).speech.engine, KokoroEngine)
+    engine = build_context(instance).speech.engine
+    assert engine.languages == ["en"] and isinstance(engine._engines["en"], KokoroEngine)
+
+
+def test_male_instance_uses_male_voices(instances_home):
+    instance = create("ravi")
+    instance.settings_path.write_text("voice:\n  gender: male\n", encoding="utf-8")
+    engine = build_context(instance).speech.engine
+    assert isinstance(engine._engines["te"], MmsEngine)
+    assert {v.gender for v in engine.voices()} == {"male"}
 
 
 def test_build_context_uses_kokoro_and_settings_defaults(instances_home):
@@ -24,7 +33,8 @@ def test_build_context_uses_kokoro_and_settings_defaults(instances_home):
     engine = context.speech.engine
     assert isinstance(engine, LanguageRouter) and engine.languages == ["en", "te"]
     assert isinstance(engine._engines["en"], KokoroEngine)
-    assert isinstance(engine._engines["te"], MmsEngine)
+    assert isinstance(engine._engines["te"], SyspinEngine)  # female by default
+    assert {v.gender for v in engine.voices()} == {"female"}
     current = context.speech.preferences.get()
     assert (current.voice, current.speed) == ("bm_george", 1.2)
 
