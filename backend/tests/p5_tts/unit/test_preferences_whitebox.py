@@ -14,7 +14,7 @@ def test_only_user_fields_are_stored():
     db, prefs = make()
     prefs.update(VoiceUpdate(speed=1.2))
     stored = json.loads(db.query("SELECT value FROM preferences WHERE key='voice'")[0]["value"])
-    assert stored == {"enabled": True, "voice": "af_heart", "speed": 1.2}
+    assert stored == {"enabled": True, "voice": "af_heart", "speed": 1.2, "acknowledge": True}
 
 
 def test_corrupt_row_falls_back_to_defaults():

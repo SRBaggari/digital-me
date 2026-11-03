@@ -7,7 +7,7 @@ import wave
 
 def test_get_voice(make_client, make_speech):
     body = make_client(speech=make_speech()).get("/api/voice").json()
-    assert body["settings"] == {"enabled": True, "voice": "v1", "speed": 1.0}
+    assert body["settings"] == {"enabled": True, "voice": "v1", "speed": 1.0, "acknowledge": True}
     assert [v["id"] for v in body["voices"]] == ["v1", "v2"]
     assert body["engine"] == "fake"
 
@@ -15,7 +15,7 @@ def test_get_voice(make_client, make_speech):
 def test_change_voice_and_speed(make_client, make_speech):
     client = make_client(speech=make_speech())
     body = client.put("/api/voice", json={"voice": "v2", "speed": 1.25}).json()
-    assert body["settings"] == {"enabled": True, "voice": "v2", "speed": 1.25}
+    assert body["settings"] == {"enabled": True, "voice": "v2", "speed": 1.25, "acknowledge": True}
     assert client.get("/api/voice").json()["settings"]["voice"] == "v2"
 
 
