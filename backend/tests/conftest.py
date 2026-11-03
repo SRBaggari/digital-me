@@ -44,7 +44,7 @@ def template_dir() -> Path:
     return instance_module.TEMPLATE_DIR
 
 
-LIVE_MODEL = os.environ.get("DIGITAL_ME_TEST_MODEL", "llama3.2:3b")
+LIVE_MODEL = os.environ.get("DIGITAL_ME_TEST_MODEL", "gemma3:4b")  # the default model
 
 
 @pytest.fixture

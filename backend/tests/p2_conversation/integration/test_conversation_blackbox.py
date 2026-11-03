@@ -34,6 +34,17 @@ async def test_real_model_uses_conversation_context(live_llm, profile, store, co
     assert "pineapple" in events[-1].message.content.lower()
 
 
+async def test_real_model_answers_telugu_in_telugu(live_llm, profile, store, collect):
+    from digital_me.language import detect_language
+
+    engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.2))
+    conv = store.create_conversation()
+    telugu = await collect(engine.respond(conv, "మీ కుక్క పేరు ఏమిటి?"))  # "What is your dog's name?"
+    assert detect_language(telugu[-1].message.content) == "te", telugu[-1].message.content
+    english = await collect(engine.respond(conv, "And what do you do for work?"))
+    assert detect_language(english[-1].message.content) == "en", english[-1].message.content
+
+
 async def test_real_model_knows_profile_fact(live_llm, profile, store, collect):
     engine = ConversationEngine(profile, store, live_llm, LLMSettings(model=live_llm.model, temperature=0.0))
     conv = store.create_conversation()
