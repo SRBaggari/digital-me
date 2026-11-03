@@ -27,7 +27,35 @@ ALIASES: dict[str, str] = {
     "caring": "empathetic",
     "sympathetic": "empathetic",
     "compassionate": "empathetic",
+    # Telugu: when answering in Telugu, gemma sometimes writes the tag in Telugu too
+    "సంతోషం": "happy",
+    "సంతోషంగా": "happy",
+    "ఆనందం": "happy",
+    "ఆనందంగా": "happy",
+    "నవ్వుతూ": "happy",
+    "ఉత్సాహంగా": "happy",
+    "తటస్థం": "neutral",
+    "సాధారణం": "neutral",
+    "ప్రశాంతంగా": "neutral",
+    "గంభీరంగా": "serious",
+    "తీవ్రంగా": "serious",
+    "ఆశ్చర్యం": "surprised",
+    "ఆశ్చర్యంగా": "surprised",
+    "విచారం": "sad",
+    "విచారంగా": "sad",
+    "బాధ": "sad",
+    "బాధగా": "sad",
+    "సానుభూతి": "empathetic",
+    "సానుభూతితో": "empathetic",
 }
+
+_TELUGU = range(0x0C00, 0x0C80)
+
+
+def _is_telugu_tag(inner: str) -> bool:
+    """A short bracketed Telugu phrase in a reply is a stage direction, never content."""
+    text = inner.strip()
+    return 0 < len(text) <= 24 and all(ord(c) in _TELUGU or c.isspace() for c in text)
 
 # A tag longer than this cannot be an emotion tag, so the '[' is ordinary text.
 _MAX_TAG_LENGTH = 32
@@ -93,7 +121,7 @@ class EmotionTagParser:
             emotion = normalize_emotion(inner)
             if emotion:
                 parts.append(EmotionPart(emotion))
-            else:
+            elif not _is_telugu_tag(inner):  # unknown Telugu tags are dropped silently
                 parts.append(TextPart(self._buffer[: end + 1]))
             self._buffer = self._buffer[end + 1:]
         return _merge(parts)
