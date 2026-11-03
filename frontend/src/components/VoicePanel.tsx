@@ -217,6 +217,23 @@ export function VoicePanel({
                     onChange={(event) => onListeningChange({ barge_in: event.target.checked })}
                   />
                 </label>
+                {listening.languages?.includes("te") && (
+                  <label className="switch-row">
+                    <span>
+                      <span className="switch-row__title">More accurate Telugu recognition</span>
+                      <span className="switch-row__hint">
+                        Uses a larger model: replies to spoken Telugu start about 2 s later.
+                      </span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      className="switch"
+                      checked={listening.settings.telugu_model === "small"}
+                      onChange={(event) => onListeningChange({ telugu_model: event.target.checked ? "small" : "base" })}
+                    />
+                  </label>
+                )}
                 <p className="voice-panel__note">
                   Your voice is turned into text on this computer and is never recorded or saved.
                 </p>

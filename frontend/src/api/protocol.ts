@@ -36,9 +36,10 @@ export interface StatusDTO {
 }
 
 export interface ListeningDTO {
-  settings: { enabled: boolean; barge_in: boolean };
+  settings: { enabled: boolean; barge_in: boolean; telugu_model?: "base" | "small" };
   model: string;
   language: string;
+  languages?: string[];
   status: string;
 }
 
