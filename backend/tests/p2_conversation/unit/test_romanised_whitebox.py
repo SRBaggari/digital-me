@@ -9,6 +9,23 @@ def test_unknown_words_are_transliterated_with_casual_fixes():
     assert santosham.endswith("ం")  # final m -> anusvara
 
 
+def test_vowel_length_follows_telugu_syllables():
+    # short before a doubled consonant or a cluster, long otherwise
+    assert rt._transliterate_word("pedda") == "పెద్ద"
+    assert rt._transliterate_word("prema") == "ప్రేమ"
+    assert rt._transliterate_word("kosam") == "కోసం"
+
+
+def test_polite_command_ending_is_retroflex():
+    assert rt._transliterate_word("randi") == "రండి"
+    assert rt._transliterate_word("undi") == "ఉంది"  # but "is" stays dental
+
+
+def test_casual_spellings_map_to_telugu_sounds():
+    assert rt._transliterate_word("thammudu").startswith("త")  # th = dental త
+    assert "ష" in rt._transliterate_word("ishtapadatanu")  # sh = ష
+
+
 def test_double_n_is_not_turned_into_anusvara():
     assert "న్న" in rt._transliterate_word("vunnadu")
 

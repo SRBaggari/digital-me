@@ -49,6 +49,25 @@ def test_spelling_variants(variant, telugu):
     assert to_telugu_script(variant) == telugu
 
 
+@pytest.mark.parametrize(
+    "romanised, telugu",
+    [
+        ("repu cinema ki veldama?", "రేపు సినిమా కి వెళ్దామా?"),
+        ("naaku konchem aakali ga undi", "నాకు కొంచెం ఆకలి గా ఉంది"),
+        ("nijamga cheppu, emaindi?", "నిజంగా చెప్పు, ఏమైంది?"),
+    ],
+)
+def test_everyday_sentences(romanised, telugu):
+    assert to_telugu_script(romanised) == telugu
+
+
+def test_english_words_listed_in_the_dictionary_do_not_make_english_telugu():
+    from digital_me.language import detect_language
+
+    assert detect_language("I went to the cinema") == "en"
+    assert detect_language("My friend Ela is here") == "en"
+
+
 def test_empty_and_symbols_unchanged():
     assert to_telugu_script("") == ""
     assert to_telugu_script("123 !? 😊") == "123 !? 😊"
