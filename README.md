@@ -120,8 +120,21 @@ replies out loud. The microphone stays on for the next thing you say; click it a
   best; on speakers the browser's echo cancellation stops it hearing itself. It can be switched
   off in the voice settings panel.
 * Your voice is processed in memory on this computer and is **never recorded or saved**.
-* About 3.3 s after you stop talking, you hear the reply: 0.7 s to be sure you've finished,
-  ~0.8 s to transcribe, ~0.6 s for the first sentence, ~1.2 s to voice it.
+* **Instant acknowledgement**: 0.5 s after you stop talking it says a short "Hmm." while it
+  prepares the answer (switch off under voice settings). The answer itself starts about 4 s after
+  you stop talking (Telugu a little longer), measured on an RTX 3050 Laptop (4 GB):
+
+  | Step | Time |
+  |---|---|
+  | Being sure you've finished (pause) | 0.5 s |
+  | English or Telugu? + transcription | ~1.0 s (Telugu ~1.2 s) |
+  | Model starts its reply | ~0.9 s |
+  | First words of the reply written (released early, before the sentence ends) | ~0.25 s |
+  | First words voiced | ~1.2 s |
+
+  The model is kept loaded and pre-warmed with the persona at startup. It is the main limit:
+  gemma3:4b doesn't fit fully in 4 GB of GPU memory, so half of it runs on the CPU and competes
+  with the voice. A GPU with 8 GB or more would roughly halve the wait.
 * For stronger accents or noisy rooms set `listening.model: small.en` in `settings.yaml`
   (more accurate, about 1.5 s slower).
 
@@ -144,8 +157,11 @@ and it replies in Telugu, spoken with a Telugu voice; switch back to English and
   nonsense), which is why a Telugu-tuned model is used.
 * `llama3.2:3b` can't write usable Telugu, so the default model is now `gemma3:4b`. That makes
   replies about a second slower: a spoken Telugu reply starts about 5 s after you stop talking.
-* Telugu is typed in Telugu script. Romanised Telugu ("ela unnavu") is treated as English when
-  typed; spoken Telugu is always recognised as Telugu.
+* Telugu can be typed in Telugu script **or in English letters** ("ela unnavu?",
+  "mee pilli peru enti?"). Romanised Telugu is recognised from common Telugu words, converted to
+  Telugu script for the model (which can't read romanised Telugu itself), and answered in Telugu
+  script so it can be spoken. English words inside ("nenu chala happy ga unnanu") stay English.
+  Common chat words are spelled correctly; rarer ones are converted approximately.
 * The Telugu voice is more robotic than the English one, and English words inside Telugu replies
   are written and spoken in Telugu letters.
 * English only? Set `listening.languages: ["en"]` and `llm.model: llama3.2:3b` in
