@@ -139,10 +139,28 @@ async def _warm_up_hearing(context: AppContext) -> None:
         context.hearing_status = f"error: {exc}"
 
 
+async def _warm_up_llm(context: AppContext) -> None:
+    """Load the model and cache the persona prompt (skipped for clients without warm_up)."""
+    warm_up = getattr(context.llm, "warm_up", None)
+    if warm_up is None:
+        return
+    messages = [
+        {"role": "system", "content": context.engine.system_prompt},
+        {"role": "user", "content": "Hi"},
+    ]
+    try:
+        await warm_up(messages, num_ctx=context.settings.llm.num_ctx)
+    except Exception:  # Ollama may simply not be running yet; replies will report it
+        log.warning("Could not pre-load the language model", exc_info=True)
+
+
 async def _warm_up(context: AppContext) -> None:
+    # The model loads on the GPU while speech models load on the CPU.
+    llm = asyncio.create_task(_warm_up_llm(context))
     # One after the other: both are CPU-heavy, and the voice matters first.
     await _warm_up_speech(context)
     await _warm_up_hearing(context)
+    await llm
 
 
 async def _warm_up_speech(context: AppContext) -> None:
