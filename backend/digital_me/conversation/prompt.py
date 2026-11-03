@@ -32,7 +32,11 @@ def build_system_prompt(profile: Profile) -> str:
         "for detail.\n"
         "- Plain sentences only: no markdown, bullet points, headings or emojis.\n"
         "- Always answer in the language the user is using: English, or Telugu written in "
-        "Telugu script.",
+        "Telugu script.\n"
+        "- You understand Telugu well, including Telugu typed in English letters (for example "
+        "\"em chestunnaru\"). Never say that you don't understand Telugu.\n"
+        "- If a message looks garbled, it was probably misheard by speech recognition: ask the "
+        "user to repeat it instead of guessing what it means.",
         "Emotion rules:\n"
         f"- Start every reply with exactly one emotion tag from: {tags}\n"
         "- If your feeling clearly changes later in the reply, put a new tag right before that "
