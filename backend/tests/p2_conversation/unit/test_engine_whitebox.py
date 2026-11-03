@@ -7,6 +7,7 @@ from digital_me.conversation import (
     TurnCompleted,
     TurnStarted,
 )
+from digital_me.language import reply_instruction
 from digital_me.llm import LLMError
 
 
@@ -19,7 +20,7 @@ async def test_history_window_passed_to_llm(make_engine, store, fake_llm_factory
         store.add_message(conv, "assistant", f"a{i}", emotion="happy")
     await collect(engine.respond(conv, "new"))
     messages = llm.calls[0]["messages"]
-    assert [m["content"] for m in messages[1:]] == ["u2", "[happy] a2", "new"]
+    assert [m["content"] for m in messages[1:]] == ["u2", "[happy] a2", reply_instruction("en"), "new"]
 
 
 async def test_settings_forwarded(make_engine, store, fake_llm_factory, collect):

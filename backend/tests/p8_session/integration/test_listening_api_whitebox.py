@@ -5,17 +5,28 @@ from fastapi.testclient import TestClient
 from digital_me.config import create
 from digital_me.server import build_context, create_app
 from digital_me.server.app import _warm_up, _warm_up_hearing
-from digital_me.stt import SileroVAD, WhisperTranscriber
+from digital_me.stt import BilingualTranscriber, SileroVAD, WhisperTranscriber
 
 
-def test_build_context_uses_whisper_and_silero_from_settings(instances_home):
+def test_build_context_english_only_uses_one_whisper_model(instances_home):
     instance = create("alice")
-    instance.settings_path.write_text("listening:\n  model: small.en\n  barge_in: false\n", encoding="utf-8")
+    instance.settings_path.write_text(
+        "listening:\n  model: small.en\n  barge_in: false\n  languages: [en]\n", encoding="utf-8"
+    )
     context = build_context(instance)
     assert isinstance(context.hearing.transcriber, WhisperTranscriber)
     assert context.hearing.transcriber.model_name == "small.en"
     assert context.hearing.vad_factory is SileroVAD
     assert context.hearing.preferences.get().barge_in is False
+
+
+def test_build_context_bilingual_by_default(instances_home):
+    context = build_context(create("alice"))
+    transcriber = context.hearing.transcriber
+    assert isinstance(transcriber, BilingualTranscriber)
+    assert transcriber.languages == ["en", "te"]
+    assert transcriber._transcribers["te"].language == "te"
+    assert transcriber._transcribers["en"].model_name == "base.en"
 
 
 async def test_warm_up_loads_recognition_after_voice(make_context, make_speech, make_hearing, fake_transcriber_factory):

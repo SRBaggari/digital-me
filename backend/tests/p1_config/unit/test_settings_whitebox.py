@@ -40,7 +40,7 @@ def test_base_url_without_scheme_rejected():
 def test_empty_file_gives_defaults(tmp_path):
     path = tmp_path / "settings.yaml"
     path.write_text("", encoding="utf-8")
-    assert load_settings(path).llm.model == "llama3.2:3b"
+    assert load_settings(path).llm.model == "gemma3:4b"
 
 
 def test_non_mapping_rejected(tmp_path):

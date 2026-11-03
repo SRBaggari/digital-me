@@ -8,6 +8,7 @@ import httpx
 from digital_me.config import LLMSettings
 from digital_me.conversation import ConversationEngine, ConversationStore, SentenceReady
 from digital_me.db import Database
+from digital_me.language import reply_instruction
 from digital_me.llm import OllamaClient
 
 
@@ -63,5 +64,6 @@ async def test_history_survives_restart(tmp_path, profile, collect):
         ConversationEngine(profile, ConversationStore(second), llm2, LLMSettings()).respond(conv, "What do I like?")
     )
     sent = [m["content"] for m in requests[0]["messages"]]
-    assert sent[1:] == ["I like tea.", "[neutral] Noted.", "What do I like?"]
+    assert sent[1:3] == ["I like tea.", "[neutral] Noted."]
+    assert sent[-2:] == [reply_instruction("en"), "What do I like?"]  # language instruction last
     second.close()

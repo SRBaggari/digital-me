@@ -14,7 +14,7 @@ def test_pcm16_decoding_and_odd_byte_tolerance():
 async def make_listener(transcriber, speech_audio, recorder, on_transcript=None):
     heard = []
 
-    async def transcript(text):
+    async def transcript(text, language=None):
         heard.append(text)
 
     async def started():

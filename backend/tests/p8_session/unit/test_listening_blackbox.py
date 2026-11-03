@@ -21,7 +21,7 @@ async def test_spoken_sentence_becomes_a_conversation_turn(make_session, make_he
     await session.wait_idle()
     types = recorder.types()
     assert types[:4] == ["mic", "user_speaking", "user_speaking", "transcribing"]
-    assert recorder.of("transcript") == [{"type": "transcript", "text": "What's up?"}]
+    assert recorder.of("transcript") == [{"type": "transcript", "text": "What's up?", "language": None}]
     assert recorder.of("user_message")[0]["message"]["content"] == "What's up?"
     assert recorder.of("assistant_done")[0]["message"]["content"] == "Hi!"
     assert [m.content for m in store.get_messages(session.conversation_id)] == ["What's up?", "Hi!"]
@@ -86,7 +86,7 @@ async def test_empty_transcript_starts_no_turn(make_session, make_hearing, fake_
     await session.handle({"type": "mic_start"})
     await say(session, speech_audio)
     await settle()
-    assert recorder.of("transcript") == [{"type": "transcript", "text": ""}]
+    assert recorder.of("transcript") == [{"type": "transcript", "text": "", "language": None}]
     assert recorder.of("user_message") == []
 
 

@@ -8,14 +8,23 @@ from fastapi.testclient import TestClient
 from digital_me.config import create
 from digital_me.server import build_context, create_app
 from digital_me.server.app import _warm_up_speech
-from digital_me.tts import KokoroEngine
+from digital_me.tts import KokoroEngine, LanguageRouter, MmsEngine
+
+
+def test_english_only_instance_uses_kokoro_alone(instances_home):
+    instance = create("bob")
+    instance.settings_path.write_text("listening:\n  languages: [en]\n", encoding="utf-8")
+    assert isinstance(build_context(instance).speech.engine, KokoroEngine)
 
 
 def test_build_context_uses_kokoro_and_settings_defaults(instances_home):
     instance = create("alice")
     instance.settings_path.write_text("voice:\n  voice: bm_george\n  speed: 1.2\n", encoding="utf-8")
     context = build_context(instance)
-    assert isinstance(context.speech.engine, KokoroEngine)
+    engine = context.speech.engine
+    assert isinstance(engine, LanguageRouter) and engine.languages == ["en", "te"]
+    assert isinstance(engine._engines["en"], KokoroEngine)
+    assert isinstance(engine._engines["te"], MmsEngine)
     current = context.speech.preferences.get()
     assert (current.voice, current.speed) == ("bm_george", 1.2)
 
