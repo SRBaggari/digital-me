@@ -44,6 +44,20 @@ async def test_warm_up_pregenerates_acknowledgement(make_context, make_speech):
     assert (context.speech.preferences.get().voice, 1.0) in context.speech.acknowledger._cache
 
 
+async def test_sending_audio_immediately_switches_detector_to_echo_mode(make_session, make_hearing, make_speech, speech_audio, fake_llm_factory):
+    import asyncio
+
+    session = make_session(fake_llm_factory(), make_speech(), make_hearing())
+    await session.handle({"type": "mic_start"})
+    assert session._listener.playback is False
+    await session.handle_audio(speech_audio.voice(600) + speech_audio.silence(600))  # -> "Hmm."
+    await asyncio.sleep(0.02)
+    assert session._listener.playback is True  # before the browser has said anything
+    await session.handle({"type": "playback", "playing": False})
+    assert session._listener.playback is False
+    await session.close()
+
+
 async def test_ignored_utterance_is_not_acknowledged(make_session, make_hearing, make_speech, speech_audio, recorder, fake_llm_factory):
     import asyncio
 
