@@ -15,6 +15,7 @@ from .prompt import build_chat_messages, build_system_prompt
 from .sentences import SentenceSplitter
 
 MAX_INPUT_CHARS = 4000
+FIRST_CLAUSE_WORDS = 3
 _SPACES = re.compile(r"[ \t]{2,}")
 
 
@@ -55,7 +56,10 @@ class _TurnState:
     first_emotion: str | None = None
     text: list[str] = field(default_factory=list)
     sentence_count: int = 0
-    splitter: SentenceSplitter = field(default_factory=SentenceSplitter)
+    # The first clause is released early so the voice can start after a few words.
+    splitter: SentenceSplitter = field(
+        default_factory=lambda: SentenceSplitter(first_clause_words=FIRST_CLAUSE_WORDS)
+    )
 
     @property
     def full_text(self) -> str:
