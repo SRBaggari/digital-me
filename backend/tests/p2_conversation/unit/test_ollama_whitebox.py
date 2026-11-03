@@ -30,7 +30,7 @@ async def test_request_payload_shape():
     await drain(client_with(handler), temperature=0.3, num_ctx=2048)
     assert seen["path"] == "/api/chat"
     body = seen["body"]
-    assert body["model"] == "m" and body["stream"] is True and body["keep_alive"] == "30m"
+    assert body["model"] == "m" and body["stream"] is True and body["keep_alive"] == -1  # model stays loaded
     assert body["options"] == {"temperature": 0.3, "num_ctx": 2048}
 
 
@@ -141,6 +141,28 @@ async def test_no_retry_once_text_was_streamed():
             received.append(chunk)
     assert received == ["par"]  # a retry would repeat text the user already saw
     assert len(calls) == 1
+
+
+async def test_warm_up_preloads_prompt_without_generating():
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "H"}, "done": True})
+
+    messages = [{"role": "system", "content": "persona"}, {"role": "user", "content": "Hi"}]
+    await client_with(handler).warm_up(messages, num_ctx=2048)
+    assert seen["messages"] == messages and seen["stream"] is False
+    assert seen["options"] == {"num_ctx": 2048, "num_predict": 1}
+    assert seen["keep_alive"] == -1
+
+
+async def test_warm_up_failure_raises_llm_error():
+    def handler(request):
+        raise httpx.ConnectError("refused", request=request)
+
+    with pytest.raises(LLMError, match="Could not load"):
+        await client_with(handler).warm_up([])
 
 
 def test_error_text_variants():

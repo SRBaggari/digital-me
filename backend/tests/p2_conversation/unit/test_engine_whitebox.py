@@ -93,6 +93,14 @@ async def test_closing_generator_early_saves_interrupted(make_engine, store, fak
     assert reply.interrupted and reply.content == "First."
 
 
+async def test_first_clause_spoken_before_first_sentence_completes(make_engine, store, fake_llm_factory, collect):
+    llm = fake_llm_factory(["[happy] Usually, I head out ", "climbing, which I love. ", "Fun."])
+    events = await collect(make_engine(llm).respond(store.create_conversation(), "x"))
+    sentences = [e.text for e in events if isinstance(e, SentenceReady)]
+    assert sentences == ["Usually, I head out climbing,", "which I love.", "Fun."]
+    assert events[-1].message.content == "Usually, I head out climbing, which I love. Fun."
+
+
 async def test_event_sequence_shape(make_engine, store, fake_llm_factory, collect):
     events = await collect(make_engine(fake_llm_factory()).respond(store.create_conversation(), "x"))
     assert isinstance(events[0], TurnStarted)

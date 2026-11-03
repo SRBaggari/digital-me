@@ -45,11 +45,11 @@ def test_pre_roll_is_capped():
 
 
 def test_utterance_includes_pre_roll():
-    detector = scripted([0.0] * 9 + [1.0] * 8 + [0.0] * 22)
-    events = detector.feed(frames(9 + 8 + 22))
+    detector = scripted([0.0] * 9 + [1.0] * 8 + [0.0] * 16)  # 16 x 32 ms = 512 ms of silence ends it
+    events = detector.feed(frames(9 + 8 + 16))
     ended = [e for e in events if isinstance(e, SpeechEnded)][0]
     pre_roll = 300 // 32
-    assert len(ended.audio) == (pre_roll + 8 + 22) * FRAME
+    assert len(ended.audio) == (pre_roll + 8 + 16) * FRAME
 
 
 def test_hysteresis_keeps_speech_through_dips():

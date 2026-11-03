@@ -48,6 +48,36 @@ def test_interrupted_turn_flag_written_to_disk(instances_home, fake_llm_factory)
     assert rows == [("user", 0), ("assistant", 1)]
 
 
+async def test_startup_preloads_model_with_the_persona_prompt(make_context, fake_llm_factory):
+    from digital_me.server.app import _warm_up_llm
+
+    llm = fake_llm_factory()
+    calls = []
+
+    async def warm_up(messages, num_ctx):
+        calls.append((messages, num_ctx))
+
+    llm.warm_up = warm_up
+    context = make_context(llm)
+    await _warm_up_llm(context)
+    [(messages, num_ctx)] = calls
+    assert messages[0] == {"role": "system", "content": context.engine.system_prompt}
+    assert num_ctx == context.settings.llm.num_ctx
+
+
+async def test_startup_continues_when_ollama_is_down(make_context, fake_llm_factory):
+    from digital_me.llm import LLMError
+    from digital_me.server.app import _warm_up_llm
+
+    llm = fake_llm_factory()
+
+    async def warm_up(messages, num_ctx):
+        raise LLMError("offline")
+
+    llm.warm_up = warm_up
+    await _warm_up_llm(make_context(llm))  # must not raise
+
+
 def test_frontend_served_when_built(tmp_path, make_context):
     dist = tmp_path / "dist"
     dist.mkdir()
