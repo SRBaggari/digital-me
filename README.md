@@ -20,6 +20,7 @@ communicating live.
 | 2. Text conversation | Persona, streaming replies, emotions, history, stop/interrupt, UI | ✅ |
 | 3. Voice | **Spoken replies** (Kokoro, 12 voices, speed, preview, mute, stop) | ✅ |
 | 3b. Voice input | **Talk with your microphone**, hands-free, interrupt by talking | ✅ |
+| 3d. Telugu | **Replies in the language you use**: English or Telugu, typed or spoken | ✅ |
 | 3c. Voice cloning | Your own cloned voice | waiting for your recordings |
 | 4. Avatar | 3D digital human, avatar upload, idle animation | planned |
 | 5. Lip sync & emotion | Mouth sync, facial expressions | planned |
@@ -124,6 +125,32 @@ replies out loud. The microphone stays on for the next thing you say; click it a
 * For stronger accents or noisy rooms set `listening.model: small.en` in `settings.yaml`
   (more accurate, about 1.5 s slower).
 
+### English and Telugu
+
+Digital Me answers in the language you use, turn by turn: type or say something in Telugu
+and it replies in Telugu, spoken with a Telugu voice; switch back to English and so does it.
+
+| Step | English | Telugu |
+|---|---|---|
+| Understanding speech | Whisper `base.en` | Whisper fine-tuned on Telugu by IIT Madras SPRING Lab (`vasista22/whisper-telugu-base`, Apache-2.0) |
+| Deciding the language | Whisper language detection (speech) or the script (typed text) | same |
+| Writing the reply | gemma3:4b | gemma3:4b, told to answer in Telugu script |
+| Speaking the reply | Kokoro | Meta MMS-TTS Telugu (`facebook/mms-tts-tel`, **CC-BY-NC-4.0: non-commercial use only**) |
+
+* Everything runs on this computer. The Telugu models download once (MMS about 145 MB, the
+  Whisper models about 290 MB); the Telugu speech model is converted to a faster format on first
+  use and kept in `models/` (git-ignored).
+* Plain Whisper can't transcribe Telugu (tested up to the 1.5 GB model: wrong scripts or
+  nonsense), which is why a Telugu-tuned model is used.
+* `llama3.2:3b` can't write usable Telugu, so the default model is now `gemma3:4b`. That makes
+  replies about a second slower: a spoken Telugu reply starts about 5 s after you stop talking.
+* Telugu is typed in Telugu script. Romanised Telugu ("ela unnavu") is treated as English when
+  typed; spoken Telugu is always recognised as Telugu.
+* The Telugu voice is more robotic than the English one, and English words inside Telugu replies
+  are written and spoken in Telugu letters.
+* English only? Set `listening.languages: ["en"]` and `llm.model: llama3.2:3b` in
+  `settings.yaml` for the faster setup.
+
 ## Choosing a model
 
 ```powershell
@@ -139,8 +166,8 @@ Results on an RTX 3050 Laptop (4 GB):
 
 | Model | Facts | Admits unknown | Emotion tags | Time per reply | Verdict |
 |---|---|---|---|---|---|
-| llama3.2:3b | 3/3 | 4/4 | 7–9/9 | 0.3 s | **Default**: fast enough for voice |
-| gemma3:4b | 3/3 | 4/4 | 9/9 | 1.6 s | Good alternative, slower |
+| llama3.2:3b | 3/3 | 4/4 | 7–9/9 | 0.3 s | Fastest, but English only (its Telugu is unusable) |
+| gemma3:4b | 3/3 | 4/4 | 9/9 | 1.6 s | **Default**: natural Telugu, consistent emotion tags |
 | qwen3:4b | 3/3 | 4/4 | 9/9 | ~50 s | Too slow: hidden "thinking" before each reply |
 
 ## Tests
