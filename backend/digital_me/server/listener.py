@@ -41,7 +41,7 @@ class Listener:
         transcriber: Transcriber,
         *,
         on_speech_start: Callable[[], Awaitable[None]],
-        on_transcript: Callable[[str], Awaitable[None]],
+        on_transcript: Callable[[str, str | None], Awaitable[None]],
         send: Send,
     ):
         self._detector = detector
@@ -87,6 +87,8 @@ class Listener:
                 await self._send({"type": "error", "code": "stt_error", "detail": str(exc)})
                 await self._send({"type": "transcript", "text": ""})
                 continue
-            await self._send({"type": "transcript", "text": transcript.text})
+            await self._send(
+                {"type": "transcript", "text": transcript.text, "language": transcript.language}
+            )
             if transcript.text:
-                await self._on_transcript(transcript.text)
+                await self._on_transcript(transcript.text, transcript.language)

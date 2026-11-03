@@ -146,12 +146,12 @@ class Session:
             self._client_playing = False
             await self._send({"type": "barge_in"})
 
-    async def _on_transcript(self, text: str) -> None:
+    async def _on_transcript(self, text: str, language: str | None = None) -> None:
         if self._ignore_utterance:
             self._ignore_utterance = False
             return
         await self.interrupt()
-        self._task = asyncio.create_task(self._run_turn(text))
+        self._task = asyncio.create_task(self._run_turn(text, language))
 
     async def interrupt(self) -> None:
         task, self._task = self._task, None
@@ -176,13 +176,13 @@ class Session:
         await self._stop_listening()
         await self.interrupt()
 
-    async def _run_turn(self, text: str) -> None:
+    async def _run_turn(self, text: str, language: str | None = None) -> None:
         await self._set_state("thinking")
         self._speaker = self._start_speaker()
         try:
             # aclosing() makes sure the engine saves a partial reply even when cancellation
             # arrives while we are sending, not while the engine is awaiting the model.
-            async with aclosing(self._engine.respond(self.conversation_id, text)) as events:
+            async with aclosing(self._engine.respond(self.conversation_id, text, language)) as events:
                 async for event in events:
                     await self._forward(event)
             if self._speaker is not None:
