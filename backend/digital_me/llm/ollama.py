@@ -25,7 +25,9 @@ class OllamaClient:
         model: str,
         *,
         timeout: float = 120.0,
-        keep_alive: str = "30m",
+        # Keep the model in memory while Ollama runs: reloading takes 5-8 s on a 4 GB GPU (and is
+        # when Ollama's runner was seen to crash).
+        keep_alive: int | str = -1,
         transport: httpx.AsyncBaseTransport | None = None,
         retries: int = 1,
         retry_delay: float = 1.0,
@@ -42,6 +44,23 @@ class OllamaClient:
         return httpx.AsyncClient(
             base_url=self.base_url, timeout=self._timeout, transport=self._transport
         )
+
+    async def warm_up(self, messages: list[dict[str, str]], *, num_ctx: int = 4096) -> None:
+        """Load the model and pre-process `messages` (the persona prompt) so Ollama's prompt
+        cache already holds them: the first real reply then starts as fast as later ones."""
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "keep_alive": self.keep_alive,
+            "options": {"num_ctx": num_ctx, "num_predict": 1},
+        }
+        try:
+            async with self._client() as client:
+                response = await client.post("/api/chat", json=payload)
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise LLMError(f"Could not load the model: {exc}") from exc
 
     async def stream_chat(
         self, messages: list[dict[str, str]], *, temperature: float = 0.7, num_ctx: int = 4096
