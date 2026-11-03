@@ -189,6 +189,21 @@ export function VoicePanel({
                 </label>
                 <label className="switch-row">
                   <span>
+                    <span className="switch-row__title">Instant acknowledgement</span>
+                    <span className="switch-row__hint">
+                      Says a short “Hmm.” the moment you stop talking, while the answer is prepared.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className="switch"
+                    checked={voice.settings.acknowledge ?? true}
+                    onChange={(event) => onChange({ acknowledge: event.target.checked })}
+                  />
+                </label>
+                <label className="switch-row">
+                  <span>
                     <span className="switch-row__title">Interrupt by talking</span>
                     <span className="switch-row__hint">
                       Start speaking to cut a reply short. Works best with headphones.
